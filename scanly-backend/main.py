@@ -1,9 +1,12 @@
 from dotenv import load_dotenv
 import os
+from db import db
 
 load_dotenv()
 
 APP_NAME = os.getenv("APP_NAME", "SCANLY")
+
+print("Connected to:", db.name)
 
 
 
