@@ -3,3 +3,6 @@ uvicorn
 pymongo
 motor
 python-dotenv
+scikit-learn
+pandas
+numpy
