@@ -1,11 +1,11 @@
 from pydantic import BaseModel, validator
-from typing import Optional
+from typing import Optional, List
+from datetime import datetime
 
 # ── INPUT ──────────────────────────────────────────
-# This defines what the frontend must send
 class ScanRequest(BaseModel):
-    text: str                        # required — the message to scan
-    url: Optional[str] = None        # optional — a URL to check
+    text: str
+    url: Optional[str] = None   # optional extra URL field
 
     @validator("text")
     def text_must_not_be_empty(cls, v):
@@ -15,15 +15,35 @@ class ScanRequest(BaseModel):
             raise ValueError("Text too long (max 5000 characters)")
         return v.strip()
 
-# ── OUTPUT ─────────────────────────────────────────
-# This defines what the backend sends back
+# ── SCAN OUTPUT ────────────────────────────────────
 class ScanResponse(BaseModel):
-    status: str                      # "success" or "error"
-    input_text: str                  # the original text (trimmed)
-    final_score: int                 # 0–100 risk score
-    category: str                    # "Safe" / "Suspicious" / "Scam"
-    ml_score: int                    # placeholder today
-    rule_score: int                  # placeholder today
-    url_score: int                   # placeholder today
-    matched_keywords: list           # keywords that triggered rules
-    explanation: str                 # human-readable reason
+    status:           str
+    input_text:       str
+    final_score:      int
+    category:         str
+    ml_score:         int
+    rule_score:       int
+    url_score:        int
+    matched_keywords: list
+    explanation:      str
+
+# ── HISTORY ITEM ───────────────────────────────────
+# Shape of one scan record returned from MongoDB
+class HistoryItem(BaseModel):
+    id:               Optional[str] = None
+    input_text:       str
+    final_score:      int
+    category:         str
+    ml_score:         int
+    rule_score:       int
+    url_score:        int
+    matched_keywords: list
+    flagged_urls:     list
+    explanation:      str
+    timestamp:        Optional[str] = None
+
+# ── HISTORY RESPONSE ───────────────────────────────
+class HistoryResponse(BaseModel):
+    status: str
+    count:  int
+    scans:  List[HistoryItem]
