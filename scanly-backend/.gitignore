@@ -4,3 +4,6 @@ __pycache__/
 ml/*.pkl
 venv/
 .venv/
+.env.local
+.env.development.local
+.env.production.local
