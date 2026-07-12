@@ -116,8 +116,8 @@ function ScanForm() {
           disabled={loading || !text.trim()}
           className={`w-full mt-5 py-3.5 rounded-xl font-semibold text-sm transition-all
             ${loading || !text.trim()
-              ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
-              : 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-900/30 hover:shadow-blue-800/40'
+  ? 'bg-gray-700 text-gray-500 cursor-not-allowed opacity-60'
+  : 'bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white shadow-lg shadow-blue-900/30 hover:shadow-blue-800/50 hover:-translate-y-0.5 active:translate-y-0'
             }`}
         >
           {loading ? (
