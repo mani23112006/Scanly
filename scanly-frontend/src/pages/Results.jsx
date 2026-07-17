@@ -45,7 +45,7 @@ function Results() {
                         text-center mb-5 shadow-xl">
 
           {/* Big score number */}
-          <div className={`text-8xl font-black mb-2 ${ringColor}`}>
+          <div className={`text-6xl md:text-8xl font-black mb-2 ${ringColor}`}>
             {result.final_score}
             <span className="text-4xl font-bold text-gray-600">%</span>
           </div>
@@ -131,7 +131,7 @@ function Results() {
         </div>
 
         {/* ── Action Buttons ─────────────────────── */}
-        <div className="flex gap-3">
+       <div className="flex flex-col sm:flex-row gap-3">
           <button
             onClick={() => navigate('/')}
             className="flex-1 bg-blue-600 hover:bg-blue-500 text-white
