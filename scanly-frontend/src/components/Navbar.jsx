@@ -1,7 +1,19 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
+import { useNavigate } from 'react-router-dom'
+
 
 function Navbar() {
+
+  const { user, isGuest, logout } = useAuth()
+const navigate = useNavigate()
+
+const handleLogout = async () => {
+  await logout()
+  navigate('/')
+}
+
   const location  = useLocation()
   const [open, setOpen] = useState(false)
 
@@ -26,17 +38,53 @@ function Navbar() {
         </Link>
 
         {/* Desktop links */}
-        <div className="hidden md:flex items-center gap-6">
-          <Link to="/"        className={linkClass('/')}>Scan</Link>
-          <Link to="/history" className={linkClass('/history')}>History</Link>
-          <span className="flex items-center gap-1.5 bg-green-900/40
-                           border border-green-800 text-green-400
-                           text-xs px-3 py-1 rounded-full">
-            <span className="w-1.5 h-1.5 bg-green-400 rounded-full
-                             animate-pulse"></span>
-            API Live
-          </span>
-        </div>
+      <div className="hidden md:flex items-center gap-6">
+  <Link to="/"        className={linkClass('/')}>Scan</Link>
+
+  {/* History only shown to logged-in users */}
+  {user && (
+    <Link to="/history" className={linkClass('/history')}>
+      History
+    </Link>
+  )}
+
+  {/* Auth status */}
+  {user ? (
+    <div className="flex items-center gap-3">
+      <span className="text-xs text-gray-500 truncate max-w-32">
+        {user.email}
+      </span>
+      <button
+        onClick={handleLogout}
+        className="text-xs bg-gray-800 hover:bg-gray-700 text-gray-400
+                   px-3 py-1.5 rounded-lg border border-gray-700
+                   transition-colors"
+      >
+        Sign out
+      </button>
+    </div>
+  ) : isGuest ? (
+    <Link to="/login"
+      className="text-xs bg-blue-600 hover:bg-blue-500 text-white
+                 px-3 py-1.5 rounded-lg transition-colors">
+      Sign in
+    </Link>
+  ) : (
+    <Link to="/login"
+      className="text-xs bg-blue-600 hover:bg-blue-500 text-white
+                 px-3 py-1.5 rounded-lg transition-colors">
+      Sign in
+    </Link>
+  )}
+
+  <span className="flex items-center gap-1.5 bg-green-900/40
+                   border border-green-800 text-green-400
+                   text-xs px-3 py-1 rounded-full">
+    <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse">
+    </span>
+    API Live
+  </span>
+</div>
 
         {/* Mobile hamburger */}
         <button
