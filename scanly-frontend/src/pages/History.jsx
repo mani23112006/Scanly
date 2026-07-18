@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import axios from 'axios'
 import HistoryCard from '../components/HistoryCard'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
-
+// ADD this instead:
+import { getHistory, clearHistory, getErrorMessage } from '../services/api'
 function History() {
   const navigate = useNavigate()
 
@@ -13,38 +12,34 @@ function History() {
   const [error,   setError]   = useState('')
 
   // ── Fetch history on mount ─────────────────────
-  const fetchHistory = async () => {
-    setLoading(true)
-    setError('')
-    try {
-      const res = await axios.get(`${API_URL}/history?limit=50`)
-      setScans(res.data.scans || [])
-    } catch (err) {
-      console.error('History fetch failed:', err)
-      if (err.request) {
-        setError('Cannot reach backend. Make sure it is running on port 8000.')
-      } else {
-        setError('Failed to load history. Please try again.')
-      }
-    } finally {
-      setLoading(false)
-    }
+const fetchHistory = async () => {
+  setLoading(true)
+  setError('')
+  try {
+    const data = await getHistory(50)     // ← uses api.js
+    setScans(data.scans || [])
+  } catch (err) {
+    setError(getErrorMessage(err))        // ← clean error message
+  } finally {
+    setLoading(false)
   }
+}
+
 
   useEffect(() => {
     fetchHistory()
   }, [])   // empty [] = run once when page loads
 
   // ── Clear all history ──────────────────────────
-  const handleClear = async () => {
-    if (!window.confirm('Delete all scan history? This cannot be undone.')) return
-    try {
-      await axios.delete(`${API_URL}/history`)
-      setScans([])
-    } catch {
-      setError('Failed to clear history.')
-    }
+ const handleClear = async () => {
+  if (!window.confirm('Delete all scan history? This cannot be undone.')) return
+  try {
+    await clearHistory()                  // ← uses api.js
+    setScans([])
+  } catch (err) {
+    setError(getErrorMessage(err))
   }
+}
 
   // ── Loading skeleton ───────────────────────────
   if (loading) {
