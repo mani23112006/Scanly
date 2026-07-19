@@ -161,26 +161,5 @@ def check_url(text: str) -> dict:
     }
 
 
-# ── Quick test — run directly to verify ────────────
-if __name__ == "__main__":
-    test_cases = [
-        "Hey, check out https://google.com for more info",
-        "http://192.168.1.1/bank/verify?account=123",
-        "Click http://bit.ly/free-prize to claim now!",
-        "Verify your account at http://secure.login.bank.verify.xyz/account/confirm?user=12345&token=abcdef",
-        "No URLs in this message at all",
-        "http://sub1.sub2.sub3.evil.tk/login/password/reset"
-    ]
 
-    print("=" * 60)
-    print("SCANLY URL Checker — Test Results")
-    print("=" * 60)
-
-    for text in test_cases:
-        result = check_url(text)
-        print(f"\nInput   : {text[:55]}...")
-        print(f"Score   : {result['url_score']}")
-        print(f"URLs    : {result['urls_found']}")
-        print(f"Reasons : {result['reasons']}")
-        print("-" * 60)
     

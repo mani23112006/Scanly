@@ -69,22 +69,3 @@ def score_rules(text: str) -> dict:
     }
 
 
-# ── Quick test — run this file directly to verify ──
-if __name__ == "__main__":
-    test_messages = [
-        "Hi, how are you doing today?",
-        "You won a prize! Click here urgently",
-        "Your bank account is blocked. Share OTP to verify account immediately.",
-        "Congratulations! You are the lottery winner. Claim your free money now. Act now!"
-    ]
-
-    print("=" * 55)
-    print("SCANLY Rule Engine — Test Results")
-    print("=" * 55)
-
-    for msg in test_messages:
-        result = score_rules(msg)
-        print(f"\nMessage : {msg[:50]}...")
-        print(f"Score   : {result['score']}")
-        print(f"Matched : {result['matched']}")
-        print("-" * 55)

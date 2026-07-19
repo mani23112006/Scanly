@@ -37,20 +37,7 @@ function ScanForm() {
     ? 'text-yellow-400'
     : 'text-gray-600'
 
-  const SAMPLES = [
-    {
-      label: '🔴 Scam SMS',
-      text: 'Your bank account is blocked. Share OTP 4829 urgently to verify account. Click http://bit.ly/verify-now'
-    },
-    {
-      label: '🟢 Safe SMS',
-      text: 'Hey! Are we still on for dinner at 7pm tonight? Let me know if you need the address.'
-    },
-    {
-      label: '🟡 Suspicious',
-      text: 'Congratulations! You have been selected for a special offer. Click here to claim your free prize.'
-    }
-  ]
+
 
   return (
     <div className="w-full">
@@ -140,23 +127,7 @@ function ScanForm() {
         </button>
       </div>
 
-      {/* Sample buttons */}
-      <div className="mt-4">
-        <p className="text-xs text-gray-600 mb-2">Try a sample:</p>
-        <div className="flex gap-2 flex-wrap">
-          {SAMPLES.map((s) => (
-            <button
-              key={s.label}
-              onClick={() => { setText(s.text); setError('') }}
-              className="text-xs bg-gray-900 border border-gray-700
-                         text-gray-400 hover:text-white hover:border-gray-600
-                         px-3 py-1.5 rounded-lg transition-colors"
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
-      </div>
+   
     </div>
   )
 }

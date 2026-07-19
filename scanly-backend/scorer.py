@@ -122,28 +122,3 @@ def scan(text: str) -> dict:
         "explanation":      explanation
     }
 
-
-# ── Quick test — run directly ────────────────────────
-if __name__ == "__main__":
-    test_cases = [
-        "Hey, are we meeting at 5pm today?",
-        "Your account is blocked. OTP: 4829. Click http://bit.ly/free",
-        "You won a prize! Verify account at http://192.168.1.1/login",
-        "Congratulations! Lottery winner. Free money. Claim now urgently.",
-        "Please send me the project report by tomorrow morning."
-    ]
-
-    print("=" * 60)
-    print("SCANLY Scorer — Full Pipeline Test")
-    print("=" * 60)
-
-    for text in test_cases:
-        result = scan(text)
-        emoji = {"Safe": "🟢", "Suspicious": "🟡", "Scam": "🔴"}
-        print(f"\nInput    : {text[:55]}...")
-        print(f"Result   : {emoji[result['category']]} {result['category']} — Score: {result['final_score']}")
-        print(f"ML       : {result['ml_score']}  Rules: {result['rule_score']}  URL: {result['url_score']}")
-        print(f"Keywords : {result['matched_keywords']}")
-        print(f"URLs     : {result['flagged_urls']}")
-        print(f"Explain  : {result['explanation'][:80]}...")
-        print("-" * 60)

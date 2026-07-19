@@ -45,18 +45,25 @@ api.interceptors.response.use(
 // Converts axios errors into clean user-facing strings
 export const getErrorMessage = (error) => {
   if (error.response) {
-    // Server responded with error status
     const status = error.response.status
     const detail = error.response.data?.detail
 
-    if (status === 422) return 'Invalid input. Please check your message and try again.'
-    if (status === 500) return 'Server error. Please try again in a moment.'
-    if (detail)         return `Error: ${detail}`
+    if (status === 422)
+      return 'Invalid input. Please check your message and try again.'
+
+    if (status === 429)
+      return 'Too many scans. Please wait a minute and try again.'
+
+    if (status === 500)
+      return 'Server error. Please try again in a moment.'
+
+    if (detail)
+      return `Error: ${detail}`
+
     return `Request failed with status ${status}`
 
   } else if (error.request) {
-    // Request made but no response — server unreachable
-    return 'Cannot reach the backend server. Make sure it is running on port 8000.'
+    return 'Unable to connect to the server. Please check your internet connection and try again.'
 
   } else {
     return 'Something went wrong. Please try again.'
