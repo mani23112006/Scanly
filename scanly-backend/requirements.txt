@@ -1,5 +1,5 @@
 fastapi
-uvicorn
+uvicorn[standard]
 pymongo
 motor
 python-dotenv
@@ -7,3 +7,4 @@ scikit-learn
 pandas
 numpy
 slowapi
+joblib

@@ -1,249 +1,148 @@
-# SCANLY
+# 🔍 SCANLY — AI-Powered Scam Detection System
 
-An AI-powered scam detection system that analyzes text messages and URLs using a hybrid approach combining **Machine Learning (NLP)**, **rule-based detection**, and **URL phishing analysis** to provide real-time, explainable scam risk scores.
-
-> **Project Status:** 🚧 In Development (Day 7 of 20)
+> Paste any suspicious SMS, WhatsApp message, or URL and get an instant AI-powered risk score with a detailed explanation.
 
 ---
 
-# Features
+## ✨ Features
 
-- AI-powered scam detection using Machine Learning (TF-IDF + Naive Bayes)
-- Rule-based scam keyword detection
-- URL phishing detection using heuristic analysis
-- Hybrid scam risk scoring
-- Explainable predictions with matched keywords
-- REST API built with FastAPI
-- Input validation using Pydantic
-- MongoDB integration
-- Interactive API documentation (Swagger UI)
-- Model persistence using Joblib
-- React frontend *(Under Development)*
+* 🤖 **NLP Model** — Naive Bayes + TF-IDF trained on 5500+ SMS messages (~97% accuracy)
+* 📋 **Rule Engine** — 20+ weighted keyword patterns for instant scam detection
+* 🔗 **URL Analyzer** — Detects IP addresses, suspicious TLDs, HTTP links, and URL shorteners
+* ⚖️ **Risk Scoring** — Weighted final score: ML (50%) + Rules (30%) + URL (20%)
+* 📊 **Explainable AI** — Shows exactly which keywords and URLs contributed to the final score
+* 💾 **Scan History** — Stores previous scans in MongoDB
+* 🔐 **Firebase Authentication** — Secure login/signup with guest access support
+* 📱 **Responsive UI** — Optimized for desktop, tablet, and mobile devices
+* 🚦 **Rate Limiting** — Prevents API abuse using SlowAPI
 
 ---
 
-# Tech Stack
-
-## Backend
-
-- Python
-- FastAPI
-- Pydantic
-- Uvicorn
-- MongoDB
-- PyMongo
-- Motor
-
-## Machine Learning
-
-- Scikit-learn
-- Pandas
-- NumPy
-- Joblib
-
-## Frontend
-
-- React
-- Vite
-- JavaScript
-
-## Database
-
-- MongoDB Community Server
-
----
-
-# Project Structure
+## 🏗️ Architecture
 
 ```text
-scanly/
-│
-├── docs/
-│   ├── DAY-01.md
-│   ├── DAY-02.md
-│   ├── DAY-03.md
-│   ├── DAY-04.md
-│   ├── DAY-05.md
-│   ├── DAY-06.md
-│   └── DAY-07.md
-│
-├── scanly-backend/
-│   ├── ml/
-│   │   ├── dataset.csv
-│   │   ├── preprocess.py
-│   │   ├── train.py
-│   │   ├── model.pkl
-│   │   └── vectorizer.pkl
-│   │
-│   ├── main.py
-│   ├── models.py
-│   ├── rules.py
-│   ├── url_checker.py
-│   ├── db.py
-│   ├── requirements.txt
-│   ├── .gitignore
-│   └── .env
-│
-└── scanly-frontend/
-    ├── src/
-    ├── package.json
-    └── vite.config.js
+React Frontend
+        │
+        │ POST /scan
+        ▼
+FastAPI Backend
+        ├── ML Model      → TF-IDF + Naive Bayes (50%)
+        ├── Rule Engine   → Keyword Analysis (30%)
+        ├── URL Analyzer  → Phishing Detection (20%)
+        ▼
+Weighted Risk Scorer
+        ▼
+MongoDB Atlas
+        ▼
+Scan History
 ```
 
 ---
 
-# Current API Endpoints
+## 🛠️ Tech Stack
 
-| Method | Endpoint | Description |
-|---------|----------|-------------|
-| GET | `/` | Backend status |
-| GET | `/health` | Health check |
-| POST | `/scan` | Analyze text and URLs for scam indicators |
+| Layer            | Technology                                    |
+| ---------------- | --------------------------------------------- |
+| Frontend         | React 18, Vite, Tailwind CSS, React Router    |
+| Backend          | FastAPI, Python 3.11, Uvicorn                 |
+| Machine Learning | scikit-learn, TF-IDF, Multinomial Naive Bayes |
+| Database         | MongoDB                                       |
+| Authentication   | Firebase Authentication                       |
+| Rate Limiting    | SlowAPI                                       |
+| Version Control  | Git & GitHub                                  |
 
 ---
 
-# Example Request
+## 📊 Risk Scoring
 
-```json
-{
-  "text": "You won a free prize! Claim your OTP now urgently."
-}
+SCANLY combines three independent detection techniques to generate a final risk score.
+
+```
+Input Message
+        │
+        ├── ML Model
+        │      ↓
+        │   Scam Probability
+        │
+        ├── Rule Engine
+        │      ↓
+        │  Keyword Score
+        │
+        └── URL Analyzer
+               ↓
+          URL Risk Score
+
+              │
+              ▼
+
+Final Score =
+(ML × 50%) +
+(Rules × 30%) +
+(URL × 20%)
 ```
 
----
+### Example
 
-# Example Response
+```
+Input:
+"Your account is blocked. Share OTP urgently.
+Click http://bit.ly/verify"
 
-```json
-{
-  "status": "success",
-  "input_text": "You won a free prize! Claim your OTP now urgently.",
-  "final_score": 67,
-  "category": "Suspicious",
-  "ml_score": 99,
-  "rule_score": 60,
-  "url_score": 0,
-  "matched_keywords": [
-    "prize",
-    "otp",
-    "urgent"
-  ],
-  "explanation": "Some suspicious patterns found. Be cautious. | Keywords: prize, otp, urgent | ML model confidence: 99% scam probability"
-}
+ML Score    = 96
+Rule Score  = 60
+URL Score   = 40
+
+Final Score
+= (96 × 0.5) + (60 × 0.3) + (40 × 0.2)
+= 74
+
+Category → Scam
 ```
 
----
-
-# Detection Pipeline
-
-```text
-User Input
-      │
-      ▼
-FastAPI API
-      │
-      ▼
-Rule-Based Detection
-      │
-      ▼
-URL Phishing Analysis
-      │
-      ▼
-Machine Learning (TF-IDF + Naive Bayes)
-      │
-      ▼
-Hybrid Risk Scoring
-      │
-      ▼
-Risk Category
-      │
-      ▼
-JSON Response
-```
+| Score    | Category      |
+| -------- | ------------- |
+| 0 – 30   | 🟢 Safe       |
+| 31 – 70  | 🟡 Suspicious |
+| 71 – 100 | 🔴 Scam       |
 
 ---
 
-# Machine Learning Pipeline
+## 🚀 Run Locally
 
-```text
-dataset.csv
-      │
-      ▼
-preprocess.py
-(Clean Text)
-      │
-      ▼
-TF-IDF Vectorizer
-(Text → Numerical Features)
-      │
-      ▼
-Multinomial Naive Bayes
-      │
-      ▼
-Evaluate Model
-      │
-      ▼
-Save
-├── model.pkl
-└── vectorizer.pkl
-      │
-      ▼
-Predict Scam Probability
-```
+### Prerequisites
 
----
+* Node.js 18+
+* Python 3.10+
+* MongoDB
 
-# Progress
-
-| Day | Status | Description |
-|-----|:------:|-------------|
-| Day 1 | ✅ | Project setup (React + FastAPI) |
-| Day 2 | ✅ | MongoDB local setup |
-| Day 3 | ✅ | REST API & Pydantic validation |
-| Day 4 | ✅ | Rule-based scam detection engine |
-| Day 5 | ✅ | URL phishing detection engine |
-| Day 6 | ✅ | NLP dataset preparation & preprocessing |
-| Day 7 | ✅ | TF-IDF + Naive Bayes model training & backend integration |
-
-Detailed daily documentation is available in the **docs/** directory.
-
----
-
-# Roadmap
-
-- [x] Backend setup
-- [x] MongoDB integration
-- [x] REST API
-- [x] Rule-based detection
-- [x] URL phishing detection
-- [x] NLP dataset preprocessing
-- [x] Machine Learning spam detection
-- [x] Model persistence
-- [ ] Save scan history
-- [ ] Feedback-based continuous learning
-- [ ] React dashboard
-- [ ] User authentication
-- [ ] Deployment (Render + Vercel)
-
----
-
-# Running the Project
-
-## Backend
+### Backend
 
 ```bash
 cd scanly-backend
+
 pip install -r requirements.txt
+
+python ml/train.py
+
 python -m uvicorn main:app --reload
 ```
 
-Backend
+Create a `.env` file:
+
+```env
+MONGO_URI=mongodb://localhost:27017
+DB_NAME=scanly_db
+APP_NAME=SCANLY
+DEBUG=True
+```
+
+Backend runs at:
 
 ```
 http://localhost:8000
 ```
 
-Swagger UI
+Swagger Docs:
 
 ```
 http://localhost:8000/docs
@@ -251,32 +150,23 @@ http://localhost:8000/docs
 
 ---
 
-## Train the ML Model
-
-```bash
-cd scanly-backend
-python ml/train.py
-```
-
-This generates:
-
-```text
-ml/
-├── model.pkl
-└── vectorizer.pkl
-```
-
----
-
-## Frontend
+### Frontend
 
 ```bash
 cd scanly-frontend
+
 npm install
+
 npm run dev
 ```
 
-Frontend
+Create a `.env` file:
+
+```env
+VITE_API_URL=http://localhost:8000
+```
+
+Frontend runs at:
 
 ```
 http://localhost:5173
@@ -284,17 +174,118 @@ http://localhost:5173
 
 ---
 
-# Future Improvements
+## 📡 API Endpoints
 
-- Deep Learning (LSTM/BERT) spam detection
-- Real-time URL reputation APIs
-- User feedback-driven model retraining
-- Dashboard with scan history & analytics
-- Browser extension for phishing detection
-- Email scam detection
+### Scan Message
+
+**POST** `/scan`
+
+Request
+
+```json
+{
+  "text": "Your account is blocked. Share OTP urgently.",
+  "url": "http://bit.ly/verify-now"
+}
+```
+
+Response
+
+```json
+{
+  "status": "success",
+  "input_text": "Your account is blocked. Share OTP urgently.",
+  "final_score": 74,
+  "category": "Scam",
+  "ml_score": 96,
+  "rule_score": 60,
+  "url_score": 40,
+  "matched_keywords": [
+    "otp",
+    "account blocked",
+    "urgent"
+  ],
+  "explanation": "Scam keywords found: otp, account blocked | URL shortener detected."
+}
+```
+
+| Method | Endpoint   | Description           |
+| ------ | ---------- | --------------------- |
+| POST   | `/scan`    | Scan text and URL     |
+| GET    | `/history` | Retrieve scan history |
+| DELETE | `/history` | Delete scan history   |
+| GET    | `/health`  | Health check          |
 
 ---
 
-# License
+## 📁 Project Structure
 
-This project is being developed for educational, hackathon, and portfolio purposes.
+```text
+scanly/
+│
+├── README.md
+├── docs/
+│   └── demo.gif
+│
+├── scanly-backend/
+│   ├── main.py
+│   ├── scorer.py
+│   ├── rules.py
+│   ├── url_checker.py
+│   ├── models.py
+│   ├── db.py
+│   ├── render.yaml
+│   └── ml/
+│       ├── train.py
+│       ├── preprocess.py
+│       └── dataset.csv
+│
+└── scanly-frontend/
+    ├── vercel.json
+    └── src/
+        ├── pages/
+        ├── components/
+        ├── services/
+        └── context/
+```
+
+---
+
+## 🧪 Sample Test Cases
+
+| Input                                             | Expected Result |
+| ------------------------------------------------- | --------------- |
+| Your bank account is blocked. Share OTP urgently. | 🔴 Scam         |
+| Congratulations! You won a lottery. Click now.    | 🔴 Scam         |
+| Hey, are we still meeting at 5 PM today?          | 🟢 Safe         |
+| Special offer selected for you.                   | 🟡 Suspicious   |
+| http://192.168.1.1/bank/verify                    | 🔴 Scam         |
+
+---
+
+## 🔮 Future Enhancements
+
+* Replace TF-IDF + Naive Bayes with **RoBERTa-base**
+* OCR-based image and screenshot scam detection
+* Browser extension
+* WhatsApp integration
+* Multilingual scam detection
+* Community-reported scam database
+* CI/CD pipeline
+* Docker support
+
+---
+
+## 👨‍💻 Author
+
+**Mani Aggarwal**
+
+B.Tech CSE — ABES Engineering College
+
+---
+
+## 📄 License
+
+MIT License
+
+Feel free to use, modify, and distribute this project.
