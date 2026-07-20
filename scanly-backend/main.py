@@ -54,7 +54,6 @@ async def health():
         "version": "1.0.0"
     }
 
-
 # ── SCAN ENDPOINT ──────────────────────────────────
 @app.post("/scan", response_model=ScanResponse)
 @limiter.limit("10/minute")
@@ -68,14 +67,13 @@ async def scan(request: Request, body: ScanRequest):
     text = body.text
 
     # If user passed a separate URL field, append it to text
-    # so url_checker picks it up automatically
     if body.url:
         text = text + " " + body.url
 
-    # ── Run full scoring pipeline ───────────────────
+    # Run scoring pipeline
     result = run_scan(text)
 
-    # ── Save to MongoDB ─────────────────────────────
+    # Prepare document for MongoDB
     scan_doc = {
         "input_text": body.text,
         "final_score": result["final_score"],
@@ -89,11 +87,22 @@ async def scan(request: Request, body: ScanRequest):
         "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
+    # Save to MongoDB
     try:
-        scans_collection.insert_one(scan_doc)
+        mongo_result = scans_collection.insert_one(scan_doc)
+
+        print("=" * 50)
+        print("✅ Document inserted successfully!")
+        print("Inserted ID:", mongo_result.inserted_id)
+        print("Database:", scans_collection.database.name)
+        print("Collection:", scans_collection.name)
+        print("=" * 50)
+
     except Exception as e:
-        # Don't crash the API if MongoDB is down — just log it
-        print(f"[WARN] Could not save to MongoDB: {e}")
+        print("=" * 50)
+        print("❌ MongoDB Insert Error")
+        print(e)
+        print("=" * 50)
 
     return ScanResponse(
         status="success",
@@ -106,7 +115,6 @@ async def scan(request: Request, body: ScanRequest):
         matched_keywords=result["matched_keywords"],
         explanation=result["explanation"]
     )
-
 
 # ── HISTORY ENDPOINT ───────────────────────────────
 @app.get("/history", response_model=HistoryResponse)
