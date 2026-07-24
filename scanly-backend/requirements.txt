@@ -3,8 +3,17 @@ uvicorn[standard]
 pymongo
 motor
 python-dotenv
+slowapi
+joblib
+
+# ── ML v2: RoBERTa  ──
+torch
+transformers
+datasets
+accelerate
+sentencepiece
+
+# ── Keep for data processing + metrics ──────────────
 scikit-learn
 pandas
 numpy
-slowapi
-joblib
