@@ -143,3 +143,44 @@ def preprocess(test_size: float = 0.2, random_state: int = 42):
 if __name__ == "__main__":
     X_train, X_test, y_train, y_test = preprocess()
     print("\nPreprocessing complete. Ready for Day 7 training.")
+
+
+
+    # ── ADD THIS at the bottom ─────────────────────────
+def load_raw_dataset(dataset_path: str = None) -> pd.DataFrame:
+    """
+    Load SMS spam dataset and return clean DataFrame.
+    Used by train_roberta.py to get the raw text + labels.
+
+    Returns DataFrame with columns: ['text', 'label_str', 'label']
+      label_str: 'ham' or 'spam'
+      label:     0 (ham) or 1 (spam)
+    """
+    if dataset_path is None:
+        base = os.path.dirname(os.path.abspath(__file__))
+        dataset_path = os.path.join(base, "dataset.csv")
+
+    df = pd.read_csv(
+        dataset_path,
+        encoding="latin-1",
+        usecols=[0, 1],
+        names=["label_str", "text"],
+        header=0
+    )
+
+    # Drop any rows with missing values
+    df = df.dropna(subset=["text", "label_str"])
+
+    # Remove rows where label is not ham or spam
+    df = df[df["label_str"].isin(["ham", "spam"])]
+
+    # Numeric label: spam=1, ham=0
+    df["label"] = df["label_str"].map({"spam": 1, "ham": 0})
+
+    # Basic text cleaning
+    df["text"] = df["text"].astype(str).str.strip()
+
+    print(f"Dataset loaded: {len(df)} rows")
+    print(df["label_str"].value_counts().to_string())
+
+    return df.reset_index(drop=True)

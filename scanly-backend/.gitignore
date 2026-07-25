@@ -1,9 +1,19 @@
 .env
 __pycache__/
 *.pyc
-ml/*.pkl
 venv/
 .venv/
-.env.local
-.env.development.local
-.env.production.local
+
+# Old ML files (delete on Day 3)
+ml/model.pkl
+ml/vectorizer.pkl
+
+# RoBERTa — large binary files, never commit
+ml/roberta/saved_model/
+ml/roberta/checkpoints/
+ml/dataset.csv        ← add back if you want (it's 500KB, ok to push)
+
+# But DO commit:
+# ml/roberta/config.py      ✓
+# ml/roberta/train_roberta.py ✓
+# ml/roberta/__init__.py    ✓
