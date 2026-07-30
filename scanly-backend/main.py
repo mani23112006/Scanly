@@ -15,6 +15,10 @@ from scorer import scan as run_scan
 from db import scans_collection
 from ml.roberta.predict import _load_model, get_model_status
 
+from fastapi import UploadFile, File
+from ocr.extract import extract_text, get_ocr_status
+from ocr.config  import MAX_IMAGE_SIZE_BYTES, ALLOWED_MIME_TYPES
+
 # ── Rate limiter ────────────────────────────────────
 limiter = Limiter(key_func=get_remote_address)
 
@@ -112,6 +116,68 @@ async def scan(request: Request, body: ScanRequest):
         explanation=result["explanation"],
     )
 
+
+# ── Image scan stub ─────────────────────────────────
+# Today: returns OCR extracted text only
+# Day 5: wires into full scoring pipeline
+
+@app.post("/scan/image")
+@limiter.limit("5/minute")           # stricter — OCR is CPU-heavy
+async def scan_image(
+    request: Request,
+    file: UploadFile = File(...)
+):
+    """
+    Step 1 (Day 4): Extract text from uploaded image.
+    Step 2 (Day 5): Wire into scorer for full risk analysis.
+    """
+
+    # ── Validate file type ──────────────────────────
+    content_type = file.content_type or ""
+    if content_type not in ALLOWED_MIME_TYPES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unsupported file type: '{content_type}'. "
+                   f"Allowed: jpg, png, webp, gif, bmp"
+        )
+
+    # ── Read + validate size ────────────────────────
+    image_bytes = await file.read()
+    size_mb     = len(image_bytes) / (1024 * 1024)
+
+    if len(image_bytes) > MAX_IMAGE_SIZE_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Image too large ({size_mb:.1f}MB). "
+                   f"Maximum allowed: 10MB"
+        )
+
+    # ── Extract text via OCR ────────────────────────
+    try:
+        ocr_result = extract_text(image_bytes)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"OCR processing failed: {str(e)}"
+        )
+
+    # ── Return stub response (Day 4) ────────────────
+    # Full scoring in Day 5
+    return {
+        "status":          "ocr_only",       # will be "success" on Day 5
+        "filename":        file.filename,
+        "file_size_kb":    round(size_mb * 1024, 1),
+        "extracted_text":  ocr_result["text"],
+        "ocr_lines":       ocr_result["lines"],
+        "ocr_confidence":  ocr_result["confidence_avg"],
+        "word_count":      ocr_result["word_count"],
+        "quality":         ocr_result["quality"],
+        "warning":         ocr_result["warning"],
+        "ocr_ms":          ocr_result["ocr_ms"],
+        "note":            "Scoring pipeline coming Day 5. OCR extraction works!"
+    }
 # ── History ──────────────────────────────────────────
 @app.get("/history", response_model=HistoryResponse)
 async def get_history(limit: int = 20):

@@ -4,9 +4,6 @@ __pycache__/
 venv/
 .venv/
 
-# Old ML files (delete on Day 3)
-ml/model.pkl
-ml/vectorizer.pkl
 
 # RoBERTa — large binary files, never commit
 ml/roberta/saved_model/
