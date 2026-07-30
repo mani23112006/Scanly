@@ -16,8 +16,9 @@ from db import scans_collection
 from ml.roberta.predict import _load_model, get_model_status
 
 from fastapi import UploadFile, File
-from ocr.extract import extract_text, get_ocr_status
-from ocr.config  import MAX_IMAGE_SIZE_BYTES, ALLOWED_MIME_TYPES
+from models  import ScanRequest, ScanResponse, HistoryResponse, HistoryItem, ImageScanResponse
+from services.image_scanner import scan_image as _scan_image_service
+from ocr.extract import get_ocr_status
 
 # ── Rate limiter ────────────────────────────────────
 limiter = Limiter(key_func=get_remote_address)
@@ -65,13 +66,16 @@ async def root():
 
 @app.get("/health")
 async def health():
-    status = get_model_status()
+    ml_status  = get_model_status()
+    ocr_status = get_ocr_status()
     return {
         "status":        "ok",
         "version":       "2.0.0",
-        "model_loaded":  status["model_loaded"],
-        "model_version": status["model_version"],
-        "device":        status["device"],
+        "model_loaded":  ml_status["model_loaded"],
+        "model_version": ml_status["model_version"],
+        "device":        ml_status["device"],
+        "ocr_loaded":    ocr_status["ocr_loaded"],
+        "ocr_languages": ocr_status["ocr_languages"],
     }
 
 # ── Scan ─────────────────────────────────────────────
@@ -117,20 +121,21 @@ async def scan(request: Request, body: ScanRequest):
     )
 
 
-# ── Image scan stub ─────────────────────────────────
-# Today: returns OCR extracted text only
-# Day 5: wires into full scoring pipeline
 
-@app.post("/scan/image")
-@limiter.limit("5/minute")           # stricter — OCR is CPU-heavy
+# ── Image scan — FULL pipeline ──────────────────────
+@app.post("/scan/image", response_model=ImageScanResponse)
+@limiter.limit("5/minute")
 async def scan_image(
     request: Request,
     file: UploadFile = File(...)
 ):
     """
-    Step 1 (Day 4): Extract text from uploaded image.
-    Step 2 (Day 5): Wire into scorer for full risk analysis.
+    Upload a screenshot (WhatsApp/SMS/email/payment).
+    Pipeline: OCR → RoBERTa → Rules → URL → Risk Score
+    Returns same schema as /scan/text plus OCR metadata.
     """
+    result = await _scan_image_service(file)
+    return result
 
     # ── Validate file type ──────────────────────────
     content_type = file.content_type or ""
@@ -163,8 +168,8 @@ async def scan_image(
             detail=f"OCR processing failed: {str(e)}"
         )
 
-    # ── Return stub response (Day 4) ────────────────
-    # Full scoring in Day 5
+    # ── Return stub response  ────────────────
+    # Full scoring 
     return {
         "status":          "ocr_only",       # will be "success" on Day 5
         "filename":        file.filename,

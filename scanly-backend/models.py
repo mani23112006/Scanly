@@ -47,3 +47,39 @@ class HistoryResponse(BaseModel):
     status: str
     count:  int
     scans:  List[HistoryItem]
+
+
+
+# ── Image Scan Response ─────────────────────────────
+# Extends ScanResponse with OCR-specific metadata
+class ImageScanResponse(BaseModel):
+    status:            str
+    filename:          Optional[str] = None
+    file_size_kb:      Optional[float] = None
+
+    # OCR metadata
+    extracted_text:    str
+    ocr_confidence:    float
+    ocr_quality:       str
+    ocr_lines:         int
+    ocr_warning:       Optional[str] = None
+    ocr_ms:            int
+
+    # Scoring (same as ScanResponse)
+    final_score:       int
+    category:          str
+    confidence:        Optional[float] = None
+    ml_score:          int
+    rule_score:        int
+    url_score:         int
+    matched_keywords:  list
+    flagged_urls:      Optional[list] = None
+    explanation:       str
+    model_version:     Optional[str] = None
+
+    # Timing
+    inference_ms:      Optional[int] = None
+    total_ms:          Optional[int] = None
+
+    # No-text response fields
+    message:           Optional[str] = None
