@@ -20,6 +20,14 @@ from models  import ScanRequest, ScanResponse, HistoryResponse, HistoryItem, Ima
 from services.image_scanner import scan_image as _scan_image_service
 from ocr.extract import get_ocr_status
 
+from services.url_scanner import scan_url_only
+from models import (
+    ScanRequest, ScanResponse,
+    HistoryResponse, HistoryItem,
+    ImageScanResponse,
+    URLScanRequest, URLScanResponse,   # ← ADD these two
+)
+
 # ── Rate limiter ────────────────────────────────────
 limiter = Limiter(key_func=get_remote_address)
 
@@ -156,6 +164,31 @@ async def scan_image(
             detail=f"Image too large ({size_mb:.1f}MB). "
                    f"Maximum allowed: 10MB"
         )
+
+    # ── URL scan ────────────────────────────────────────
+@app.post("/scan/url", response_model=URLScanResponse)
+@limiter.limit("20/minute")          # generous limit — URL check is instant
+async def scan_url(request: Request, body: URLScanRequest):
+    """
+    Analyse a single URL for phishing indicators.
+    No ML model involved — pure pattern analysis.
+    Returns instantly (< 50ms).
+    """
+    result = scan_url_only(body.url)
+    return URLScanResponse(**result)
+
+
+# ── /scan/text alias ─────────────────────────────────
+# Named alias for /scan — used by frontend tabs on Day 9
+@app.post("/scan/text", response_model=ScanResponse)
+@limiter.limit("10/minute")
+async def scan_text(request: Request, body: ScanRequest):
+    """
+    Named alias for POST /scan.
+    Identical behaviour — just a cleaner endpoint name
+    that matches the /scan/url and /scan/image naming pattern.
+    """
+    return await scan(request, body)
 
     # ── Extract text via OCR ────────────────────────
     try:

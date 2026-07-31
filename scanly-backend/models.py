@@ -83,3 +83,39 @@ class ImageScanResponse(BaseModel):
 
     # No-text response fields
     message:           Optional[str] = None
+
+  
+
+# ── URL Scan ────────────────────────────────────────
+class URLScanRequest(BaseModel):
+    url: str
+
+    @validator("url")
+    def url_must_not_be_empty(cls, v):
+        if not v.strip():
+            raise ValueError("URL cannot be empty")
+        # Basic URL format check
+        v = v.strip()
+        if len(v) < 4:
+            raise ValueError("URL too short")
+        return v
+
+
+class URLChecks(BaseModel):
+    uses_ip:         bool = False
+    uses_http:       bool = False
+    suspicious_tld:  bool = False
+    too_long:        bool = False
+    too_many_subs:   bool = False
+    suspicious_path: bool = False
+    url_shortener:   bool = False
+
+
+class URLScanResponse(BaseModel):
+    status:       str
+    url:          str
+    url_score:    int
+    final_score:  int
+    category:     str
+    reasons:      List[str]
+    explanation:  str
