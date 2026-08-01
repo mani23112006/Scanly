@@ -1,133 +1,165 @@
 # 🔍 SCANLY — AI-Powered Scam Detection System
 
-> Paste any suspicious SMS, WhatsApp message, or URL and get an instant AI-powered risk score with a detailed explanation.
+> Detect phishing attempts in **SMS, URLs, and screenshots** using a hybrid AI pipeline powered by **RoBERTa, OCR, rule-based analysis, and URL intelligence**.
 
 ---
 
-## ✨ Features
+# ✨ Features
 
-* 🤖 **NLP Model** — Naive Bayes + TF-IDF trained on 5500+ SMS messages (~97% accuracy)
-* 📋 **Rule Engine** — 20+ weighted keyword patterns for instant scam detection
-* 🔗 **URL Analyzer** — Detects IP addresses, suspicious TLDs, HTTP links, and URL shorteners
-* ⚖️ **Risk Scoring** — Weighted final score: ML (50%) + Rules (30%) + URL (20%)
-* 📊 **Explainable AI** — Shows exactly which keywords and URLs contributed to the final score
-* 💾 **Scan History** — Stores previous scans in MongoDB
-* 🔐 **Firebase Authentication** — Secure login/signup with guest access support
-* 📱 **Responsive UI** — Optimized for desktop, tablet, and mobile devices
-* 🚦 **Rate Limiting** — Prevents API abuse using SlowAPI
+- 🤖 **RoBERTa-Based AI Detection** — Fine-tuned RoBERTa model trained on the SMS Spam Collection dataset for high-accuracy scam classification.
+- 🖼️ **OCR Scam Detection** — Extracts text from screenshots using EasyOCR before AI analysis.
+- 📋 **Rule-Based Detection** — Detects phishing keywords, urgency phrases, OTP requests, banking scams, and suspicious patterns.
+- 🔗 **URL Risk Analysis** — Detects IP-based URLs, shortened links, HTTP links, suspicious domains, and phishing indicators.
+- ⚖️ **Hybrid Risk Scoring**
+  - AI Model (50%)
+  - Rule Engine (30%)
+  - URL Analyzer (20%)
+- 📊 **Explainable AI** — Shows AI confidence, matched keywords, URL findings, and final explanation.
+- 💾 **Scan History** — Stores previous scans in MongoDB Atlas.
+- 🔐 **Firebase Authentication** — Secure email/password authentication with guest access.
+- 🚦 **Rate Limiting** — API protection using SlowAPI.
+- 📱 **Responsive UI** — Optimized for desktop, tablet, and mobile devices.
+- ⚡ **Fast Inference** — Singleton model loading minimizes prediction latency.
 
 ---
 
-## 🏗️ Architecture
+# 🏗️ Architecture
 
 ```text
-React Frontend
-        │
-        │ POST /scan
-        ▼
-FastAPI Backend
-        ├── ML Model      → TF-IDF + Naive Bayes (50%)
-        ├── Rule Engine   → Keyword Analysis (30%)
-        ├── URL Analyzer  → Phishing Detection (20%)
-        ▼
-Weighted Risk Scorer
-        ▼
-MongoDB Atlas
-        ▼
-Scan History
+                   User Input
+      (Text / URL / Screenshot Image)
+                    │
+                    ▼
+            React + Vite Frontend
+                    │
+            POST /scan Request
+                    │
+                    ▼
+              FastAPI Backend
+                    │
+     ┌──────────────┼───────────────┐
+     │              │               │
+     ▼              ▼               ▼
+ OCR Extractor   RoBERTa Model   URL Analyzer
+ (EasyOCR)           50%             20%
+     │
+     ▼
+Extracted Text
+     │
+     ▼
+ Rule Engine (30%)
+     │
+     └──────────────┬───────────────┘
+                    ▼
+           Weighted Risk Scorer
+                    ▼
+      Safe | Suspicious | Scam
+                    ▼
+             MongoDB Atlas
 ```
 
 ---
 
-## 🛠️ Tech Stack
+# 🛠️ Tech Stack
 
-| Layer            | Technology                                    |
-| ---------------- | --------------------------------------------- |
-| Frontend         | React 18, Vite, Tailwind CSS, React Router    |
-| Backend          | FastAPI, Python 3.11, Uvicorn                 |
-| Machine Learning | scikit-learn, TF-IDF, Multinomial Naive Bayes |
-| Database         | MongoDB                                       |
-| Authentication   | Firebase Authentication                       |
-| Rate Limiting    | SlowAPI                                       |
-| Version Control  | Git & GitHub                                  |
+| Layer | Technology |
+|--------|------------|
+| Frontend | React 18, Vite, Tailwind CSS, React Router |
+| Backend | FastAPI, Python 3.11, Uvicorn |
+| AI/NLP | Hugging Face Transformers, RoBERTa-base, PyTorch |
+| OCR | EasyOCR |
+| Database | MongoDB Atlas |
+| Authentication | Firebase Authentication |
+| Rate Limiting | SlowAPI |
+| ML Libraries | Transformers, Scikit-learn |
+| Version Control | Git & GitHub |
 
 ---
 
-## 📊 Risk Scoring
+# 📊 Model Performance
 
-SCANLY combines three independent detection techniques to generate a final risk score.
+| Metric | Value |
+|---------|-------|
+| Dataset | SMS Spam Collection |
+| Model | RoBERTa-base |
+| Accuracy | 99.28% |
+| F1 Score | 0.9928 |
+| Input Types | SMS, URLs, Images |
+| Risk Categories | Safe, Suspicious, Scam |
 
-```
-Input Message
-        │
-        ├── ML Model
-        │      ↓
-        │   Scam Probability
-        │
-        ├── Rule Engine
-        │      ↓
-        │  Keyword Score
-        │
-        └── URL Analyzer
-               ↓
-          URL Risk Score
+---
 
-              │
-              ▼
+# 📈 Risk Scoring
 
-Final Score =
-(ML × 50%) +
-(Rules × 30%) +
-(URL × 20%)
+SCANLY combines multiple detection techniques to generate a final scam score.
+
+```text
+          Input
+            │
+   ┌────────┼────────┐
+   ▼        ▼        ▼
+RoBERTa   Rules     URL
+ 50%       30%      20%
+   └────────┼────────┘
+            ▼
+    Weighted Risk Score
+            ▼
+ Safe | Suspicious | Scam
 ```
 
 ### Example
 
-```
+```text
 Input:
-"Your account is blocked. Share OTP urgently.
-Click http://bit.ly/verify"
 
-ML Score    = 96
-Rule Score  = 60
-URL Score   = 40
+"Your account is blocked.
+Share OTP immediately.
+
+http://bit.ly/verify"
+
+RoBERTa Score = 98
+Rule Score    = 70
+URL Score     = 45
 
 Final Score
-= (96 × 0.5) + (60 × 0.3) + (40 × 0.2)
-= 74
+= (98 × 0.5)
++ (70 × 0.3)
++ (45 × 0.2)
+
+= 79
 
 Category → Scam
 ```
 
-| Score    | Category      |
-| -------- | ------------- |
-| 0 – 30   | 🟢 Safe       |
-| 31 – 70  | 🟡 Suspicious |
-| 71 – 100 | 🔴 Scam       |
+| Score | Category |
+|--------|----------|
+| 0–30 | 🟢 Safe |
+| 31–70 | 🟡 Suspicious |
+| 71–100 | 🔴 Scam |
 
 ---
 
-## 🚀 Run Locally
+# 🚀 Run Locally
 
-### Prerequisites
+## Prerequisites
 
-* Node.js 18+
-* Python 3.10+
-* MongoDB
+- Node.js 18+
+- Python 3.11+
+- MongoDB
 
-### Backend
+---
+
+## Backend
 
 ```bash
 cd scanly-backend
 
 pip install -r requirements.txt
 
-python ml/train.py
-
 python -m uvicorn main:app --reload
 ```
 
-Create a `.env` file:
+Create `.env`
 
 ```env
 MONGO_URI=mongodb://localhost:27017
@@ -136,13 +168,13 @@ APP_NAME=SCANLY
 DEBUG=True
 ```
 
-Backend runs at:
+Backend
 
 ```
 http://localhost:8000
 ```
 
-Swagger Docs:
+Swagger Docs
 
 ```
 http://localhost:8000/docs
@@ -150,7 +182,7 @@ http://localhost:8000/docs
 
 ---
 
-### Frontend
+## Frontend
 
 ```bash
 cd scanly-frontend
@@ -160,13 +192,13 @@ npm install
 npm run dev
 ```
 
-Create a `.env` file:
+Create `.env`
 
 ```env
 VITE_API_URL=http://localhost:8000
 ```
 
-Frontend runs at:
+Frontend
 
 ```
 http://localhost:5173
@@ -174,18 +206,16 @@ http://localhost:5173
 
 ---
 
-## 📡 API Endpoints
+# 📡 API Endpoints
 
-### Scan Message
-
-**POST** `/scan`
+## POST /scan
 
 Request
 
 ```json
 {
-  "text": "Your account is blocked. Share OTP urgently.",
-  "url": "http://bit.ly/verify-now"
+  "text": "Your account has been blocked. Verify immediately.",
+  "url": "http://bit.ly/verify"
 }
 ```
 
@@ -194,36 +224,37 @@ Response
 ```json
 {
   "status": "success",
-  "input_text": "Your account is blocked. Share OTP urgently.",
-  "final_score": 74,
+  "final_score": 83,
   "category": "Scam",
-  "ml_score": 96,
-  "rule_score": 60,
+  "ml_score": 98,
+  "rule_score": 72,
   "url_score": 40,
   "matched_keywords": [
-    "otp",
-    "account blocked",
-    "urgent"
+    "blocked",
+    "verify",
+    "otp"
   ],
-  "explanation": "Scam keywords found: otp, account blocked | URL shortener detected."
+  "ocr_text": null,
+  "explanation": "Detected phishing keywords and suspicious shortened URL."
 }
 ```
 
-| Method | Endpoint   | Description           |
-| ------ | ---------- | --------------------- |
-| POST   | `/scan`    | Scan text and URL     |
-| GET    | `/history` | Retrieve scan history |
-| DELETE | `/history` | Delete scan history   |
-| GET    | `/health`  | Health check          |
+| Method | Endpoint | Description |
+|---------|----------|-------------|
+| POST | `/scan` | Scan text, URL, or screenshot |
+| GET | `/history` | Retrieve scan history |
+| DELETE | `/history` | Delete scan history |
+| GET | `/health` | Health check |
 
 ---
 
-## 📁 Project Structure
+# 📁 Project Structure
 
 ```text
 scanly/
 │
 ├── README.md
+│
 ├── docs/
 │   └── demo.gif
 │
@@ -232,51 +263,60 @@ scanly/
 │   ├── scorer.py
 │   ├── rules.py
 │   ├── url_checker.py
+│   ├── ocr.py
 │   ├── models.py
 │   ├── db.py
 │   ├── render.yaml
+│   │
 │   └── ml/
-│       ├── train.py
+│       ├── roberta/
+│       │   ├── predict.py
+│       │   ├── train.py
+│       │   └── saved_model/
+│       │
 │       ├── preprocess.py
 │       └── dataset.csv
 │
 └── scanly-frontend/
-    ├── vercel.json
-    └── src/
-        ├── pages/
-        ├── components/
-        ├── services/
-        └── context/
+    ├── src/
+    │
+    ├── pages/
+    ├── components/
+    ├── services/
+    └── context/
 ```
 
 ---
 
-## 🧪 Sample Test Cases
+# 🧪 Sample Test Cases
 
-| Input                                             | Expected Result |
-| ------------------------------------------------- | --------------- |
-| Your bank account is blocked. Share OTP urgently. | 🔴 Scam         |
-| Congratulations! You won a lottery. Click now.    | 🔴 Scam         |
-| Hey, are we still meeting at 5 PM today?          | 🟢 Safe         |
-| Special offer selected for you.                   | 🟡 Suspicious   |
-| http://192.168.1.1/bank/verify                    | 🔴 Scam         |
-
----
-
-## 🔮 Future Enhancements
-
-* Replace TF-IDF + Naive Bayes with **RoBERTa-base**
-* OCR-based image and screenshot scam detection
-* Browser extension
-* WhatsApp integration
-* Multilingual scam detection
-* Community-reported scam database
-* CI/CD pipeline
-* Docker support
+| Input | Expected |
+|------|----------|
+| Your account is blocked. Share OTP immediately. | 🔴 Scam |
+| Congratulations! You won ₹10 lakh. Click now. | 🔴 Scam |
+| Meeting has been shifted to 5 PM. | 🟢 Safe |
+| Exclusive offer just for you. | 🟡 Suspicious |
+| http://192.168.1.1/login | 🔴 Scam |
+| Screenshot containing OTP scam message | 🔴 Scam |
 
 ---
 
-## 👨‍💻 Author
+# 🔮 Future Enhancements
+
+- Browser Extension
+- WhatsApp Integration
+- Telegram Scam Detection
+- Chrome Safe Browsing Integration
+- Multilingual Scam Detection
+- Community Reported Scam Database
+- Docker Deployment
+- CI/CD Pipeline
+- AWS Deployment
+- ONNX Model Optimization
+
+---
+
+# 👨‍💻 Author
 
 **Mani Aggarwal**
 
@@ -284,7 +324,7 @@ B.Tech CSE — ABES Engineering College
 
 ---
 
-## 📄 License
+# 📄 License
 
 MIT License
 
