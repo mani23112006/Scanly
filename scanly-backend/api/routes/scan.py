@@ -193,16 +193,23 @@ async def scan_text(
     )
 
     return ScanResponse(
-        status="success",
-        input_text=body.text,
-        final_score=result["final_score"],
-        category=result["category"],
-        ml_score=result["ml_score"],
-        rule_score=result["rule_score"],
-        url_score=result["url_score"],
-        matched_keywords=result["matched_keywords"],
-        explanation=result["explanation"],
-    )
+    status="success",
+   input_text=body.text,
+    final_score=result["final_score"],
+    category=result["category"],
+
+    # New fields
+    confidence=result.get("confidence"),
+    model_version=result.get("model_version"),
+    processing_time_ms=result.get("processing_time_ms"),
+
+    # Existing fields
+    ml_score=result["ml_score"],
+    rule_score=result["rule_score"],
+    url_score=result["url_score"],
+    matched_keywords=result["matched_keywords"],
+    explanation=result["explanation"],
+)
 
 
 # --------------------------------------------------------
