@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { scanMessage, getErrorMessage } from '../services/api'
-
+import { scanText, getErrorMessage } from '../services/api'
 function ScanForm() {
   const navigate = useNavigate()
 
@@ -21,7 +20,7 @@ function ScanForm() {
 
     try {
       // ── Uses api.js service function ──────────
-      const result = await scanMessage(text, url)
+const result = await scanText(text, url)
       navigate('/results', { state: { result } })
 
     } catch (err) {
