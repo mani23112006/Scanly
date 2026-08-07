@@ -6,14 +6,17 @@ python-dotenv
 slowapi
 joblib
 
-# ── ML v2: RoBERTa  ──
+# ── ML v2: RoBERTa ──
 torch
 transformers
 datasets
 accelerate
 sentencepiece
 
-# ── Keep for data processing + metrics ──────────────
+# ── Keep for data processing + metrics ──
 scikit-learn
 pandas
 numpy
+
+# ── Gemini AI ──
+google-genai

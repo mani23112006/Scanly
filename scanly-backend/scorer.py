@@ -1,204 +1,678 @@
 """
-SCANLY — Risk Scoring Engine v2
-Combines RoBERTa + Rule Engine + URL Checker into one weighted score.
-Day 8 adds: timing, confidence, payment receipt detection.
+SCANLY — Hybrid Risk Scoring Engine (v3)
+
+Combines:
+- RoBERTa Spam Classifier
+- Rule Engine
+- URL Reputation
+
+with intelligent score fusion.
 """
 
 import time
-from rules        import score_rules
-from url_checker  import check_url
+
+from rules import score_rules
+from url_checker import check_url
 from ml.roberta.predict import predict as ml_predict
 
-# ── Weights ─────────────────────────────────────────
-ML_WEIGHT   = 0.50
-RULE_WEIGHT = 0.30
-URL_WEIGHT  = 0.20
+# ==========================================================
+# MODEL INFO
+# ==========================================================
 
-# ── Thresholds ──────────────────────────────────────
-SAFE_MAX       = 30
+MODEL_VERSION = "roberta-base-finetuned-v3"
+
+# ==========================================================
+# SCORE WEIGHTS
+# ==========================================================
+
+ML_WEIGHT = 0.50
+RULE_WEIGHT = 0.30
+URL_WEIGHT = 0.20
+
+# Receipt-specific weights
+RECEIPT_ML_WEIGHT = 0.20
+RECEIPT_RULE_WEIGHT = 0.50
+RECEIPT_URL_WEIGHT = 0.30
+
+# ==========================================================
+# CATEGORY THRESHOLDS
+# ==========================================================
+
+SAFE_MAX = 30
 SUSPICIOUS_MAX = 70
 
-# ── Model version ───────────────────────────────────
-MODEL_VERSION = "roberta-base-finetuned-v1"
+# ==========================================================
+# PAYMENT RECEIPT WHITELIST
+# ==========================================================
 
-# ── Payment receipt whitelist ───────────────────────
-# Legitimate banking/payment patterns — RoBERTa wasn't trained on these
-_PAYMENT_PATTERNS = [
+_PAYMENT_PATTERNS = {
+
+    # Generic
     "payment successful",
+    "payment received",
+    "payment receipt",
+
+    # Transaction
+    "transaction successful",
     "transaction id",
-    "upi id",
-    "powered by upi",
-    "debited from account",
-    "credited to account",
+    "transaction no",
+    "transaction reference",
+    "reference number",
+    "txn",
+    "txn id",
+    "utr",
+    "upi ref",
+
+    # Debit / Credit
     "amount debited",
     "amount credited",
-    "bank reference",
+    "debited",
+    "credited",
+    "debited from account",
+    "credited to account",
+
+    # Balance
+    "available balance",
+    "account balance",
+
+    # Banking
+    "imps",
+    "neft",
+    "rtgs",
+
+    # Salary / Cashback
+    "salary credited",
+    "cashback credited",
+
+    # Wallets
+    "google pay",
+    "phonepe",
+    "paytm",
+    "bhim",
+
+    # UPI
+    "upi id",
+    "powered by upi",
+
+    # Banks
     "state bank of india",
     "hdfc bank",
     "icici bank",
     "axis bank",
     "bank of baroda",
-    "paytm",
-    "google pay",
-    "phonepe",
-    "razorpay",
-    "rupees only",
-    "payment receipt",
-    "transaction successful",
-    "ref no",
-    "utr no",
-]
+
+    # References
+    "bank reference",
+    "account ending",
+    "ending with",
+    "a/c",
+}
+
+# ==========================================================
+# PHISHING TERMS
+# If any of these appear, receipt detection is disabled.
+# ==========================================================
+
+_PHISHING_TERMS = {
+
+    # OTP
+    "otp",
+    "share otp",
+
+    # Verification
+    "verify",
+    "verify now",
+    "verify account",
+
+    # Account
+    "blocked",
+    "account blocked",
+    "suspended",
+    "account suspended",
+
+    # KYC
+    "kyc",
+    "update kyc",
+
+    # Credentials
+    "cvv",
+    "pin",
+
+    # Links
+    "click here",
+
+    # Urgency
+    "urgent",
+    "immediately",
+    "within 24 hours",
+
+    # Rewards
+    "winner",
+    "lottery",
+    "claim now",
+    "claim reward",
+
+    # Banking
+    "bank account",
+
+    # Security
+    "security alert",
+}
+
+# ==========================================================
+# CRITICAL KEYWORDS
+# These can force a Scam classification later.
+# ==========================================================
+
+CRITICAL_KEYWORDS = {
+
+    "share otp",
+    "account blocked",
+    "account suspended",
+    "verify account",
+    "verify now",
+    "click here",
+    "update kyc",
+    "cvv",
+    "pin",
+
+    # Combination keywords from rules.py
+    "otp + blocked",
+    "otp + verify",
+    "bank + click here",
+    "upi + verify",
+}
+
+# ==========================================================
+# PAYMENT RECEIPT DETECTOR
+# ==========================================================
 
 def _is_payment_receipt(text: str) -> bool:
     """
-    Detect if text is a legitimate payment/banking receipt.
-    Returns True if 3+ payment patterns found.
-    RoBERTa is unreliable on formal banking language —
-    this override reduces its weight when triggered.
+    Returns True only if:
+      • multiple payment indicators exist
+      • NO phishing indicators exist
     """
-    text_lower = text.lower()
-    matches    = sum(1 for p in _PAYMENT_PATTERNS if p in text_lower)
-    return matches >= 3
 
+    text = text.lower()
 
-# ── Category mapping ────────────────────────────────
-def get_category(score: int) -> str:
-    if score <= SAFE_MAX:
-        return "Safe"
-    elif score <= SUSPICIOUS_MAX:
-        return "Suspicious"
-    else:
-        return "Scam"
-
-    
-
-# ── Explanation builder ──────────────────────────────
-def build_explanation(
-    category: str,
-    matched_keywords: list,
-    url_reasons: list,
-    ml_score: int,
-    confidence: float,
-    is_receipt: bool = False,
-) -> str:
-    if category == "Safe":
-        if is_receipt:
-            return "Appears to be a legitimate payment receipt. No scam indicators detected."
-        return "No significant scam indicators detected."
-
-    reasons = []
-
-    if is_receipt:
-        reasons.append("Note: Payment receipt detected — ML weight reduced")
-
-    if matched_keywords:
-        reasons.append(f"Scam keywords: {', '.join(matched_keywords)}")
-
-    if url_reasons:
-        reasons.extend(url_reasons)
-
-    if ml_score > 60 and not is_receipt:
-        reasons.append(f"AI model: {confidence:.0%} scam confidence")
-
-    return " | ".join(reasons) if reasons else "Suspicious language patterns detected."
-
-
-# ── Main scan function ───────────────────────────────
-def scan(text: str) -> dict:
-    """
-    Full scoring pipeline.
-    Args:   text — raw message (may include URLs)
-    Returns: complete risk result dict
-    """
-    t0 = time.time()
-
-    # ── 1. RoBERTa ML score ─────────────────────────
-    try:
-        rob_result  = ml_predict(text)
-        ml_score    = int(rob_result["probability"] * 100)
-        confidence  = round(rob_result["confidence"], 4)
-        rob_ms      = rob_result.get("inference_ms", 0)
-    except Exception as e:
-        print(f"[WARN] RoBERTa failed: {e}")
-        ml_score, confidence, rob_ms = 50, 0.5, 0
-
-    # ── 2. Rule engine ──────────────────────────────
-    rule_result      = score_rules(text)
-    rule_score       = rule_result["score"]
-    matched_keywords = rule_result["matched"]
-
-    # ── 3. URL checker ──────────────────────────────
-    url_result   = check_url(text)
-    url_score    = url_result["url_score"]
-    flagged_urls = url_result["urls_found"]
-    url_reasons  = url_result["reasons"]
-
-    # ── 4. Payment receipt detection ────────────────
-    is_receipt = _is_payment_receipt(text)
-
-    # ── 5. Dynamic weighted score ───────────────────
-    if is_receipt:
-        # RoBERTa unreliable on formal banking language
-        # Shift weight heavily to rule engine (no scam keywords = safe)
-        final = int(
-            (ml_score   * 0.20) +
-            (rule_score * 0.50) +
-            (url_score  * 0.30)
-        )
-    elif ml_score >= 80:
-        # High ML confidence → trust it more
-        final = int(
-            (ml_score   * 0.60) +
-            (rule_score * 0.25) +
-            (url_score  * 0.15)
-        )
-    elif ml_score <= 20:
-        # ML says very safe → rules and URL matter more
-        final = int(
-            (ml_score   * 0.40) +
-            (rule_score * 0.35) +
-            (url_score  * 0.25)
-        )
-   
-
-           # ── 6. Keyword boost ────────────────────────────
-    kw_count = len(matched_keywords)
-    if kw_count >= 3:
-        final = min(final + 15, 100)
-    elif kw_count >= 2:
-        final = min(final + 8, 100)
-
-    final = min(final, 100)
-
-    # ── 7. Category + explanation ───────────────────
-    category    = get_category(final)
-    explanation = build_explanation(
-        category, matched_keywords, url_reasons,
-        ml_score, confidence, is_receipt
+    payment_matches = sum(
+        keyword in text
+        for keyword in _PAYMENT_PATTERNS
     )
 
-    # ── 8. Total processing time ────────────────────
-    elapsed_ms = int((time.time() - t0) * 1000)
+    phishing_found = any(
+        keyword in text
+        for keyword in _PHISHING_TERMS
+    )
+
+    return payment_matches >= 3 and not phishing_found
+
+
+# ==========================================================
+# CATEGORY
+# ==========================================================
+
+def get_category(score: int) -> str:
+
+    if score <= SAFE_MAX:
+        return "Safe"
+
+    if score <= SUSPICIOUS_MAX:
+        return "Suspicious"
+
+    return "Scam"
+
+
+# ==========================================================
+# EXPLANATION ENGINE
+# ==========================================================
+
+def _format_keywords(matched_keywords):
+    """
+    Convert keyword list into a readable string.
+    """
+    if not matched_keywords:
+        return None
+
+    return "Matched keywords: " + ", ".join(sorted(set(matched_keywords)))
+
+
+def _format_urls(flagged_urls):
+    """
+    Format detected URLs.
+    """
+    if not flagged_urls:
+        return None
+
+    return "Detected URL(s): " + ", ".join(flagged_urls)
+
+
+def _format_url_reasons(url_reasons):
+    """
+    Format URL reputation reasons.
+    """
+    if not url_reasons:
+        return None
+
+    return "URL Analysis: " + "; ".join(url_reasons)
+
+
+def _format_ai(ml_score, confidence):
+    """
+    AI explanation.
+    """
+
+    if ml_score >= 80:
+        return f"AI model strongly predicts scam ({confidence:.0%} confidence)."
+
+    if ml_score >= 50:
+        return f"AI model found suspicious patterns ({confidence:.0%} confidence)."
+
+    return None
+
+
+# ==========================================================
+# BUILD EXPLANATION
+# ==========================================================
+
+def build_explanation(
+    category,
+    matched_keywords,
+    flagged_urls,
+    url_reasons,
+    ml_score,
+    confidence,
+    is_receipt=False,
+):
+    """
+    Build a human-readable explanation for the scan result.
+    """
+
+    # -------------------------
+    # Genuine payment receipt
+    # -------------------------
+    if is_receipt and category == "Safe":
+        return (
+            "This appears to be a legitimate payment notification. "
+            "No phishing indicators were detected."
+        )
+
+    # -------------------------
+    # Safe message
+    # -------------------------
+    if category == "Safe":
+        return (
+            "No significant scam indicators were detected."
+        )
+
+    explanation_parts = []
+
+    # -------------------------
+    # Keywords
+    # -------------------------
+    keyword_text = _format_keywords(matched_keywords)
+    if keyword_text:
+        explanation_parts.append(keyword_text)
+
+    # -------------------------
+    # URLs
+    # -------------------------
+    url_text = _format_urls(flagged_urls)
+    if url_text:
+        explanation_parts.append(url_text)
+
+    # -------------------------
+    # URL Reasons
+    # -------------------------
+    reason_text = _format_url_reasons(url_reasons)
+    if reason_text:
+        explanation_parts.append(reason_text)
+
+    # -------------------------
+    # AI
+    # -------------------------
+    ai_text = _format_ai(
+        ml_score,
+        confidence,
+    )
+
+    if ai_text:
+        explanation_parts.append(ai_text)
+
+    # -------------------------
+    # Receipt override
+    # -------------------------
+    if is_receipt:
+        explanation_parts.append(
+            "Payment-related terms detected."
+        )
+
+    # -------------------------
+    # Fallback
+    # -------------------------
+    if not explanation_parts:
+        explanation_parts.append(
+            "Suspicious patterns detected."
+        )
+
+    return " | ".join(explanation_parts)
+
+
+# ==========================================================
+# RISK FUSION ENGINE
+# ==========================================================
+
+def _has_critical_keywords(matched_keywords):
+    """
+    Returns True if any critical phishing keyword was detected.
+    """
+    return any(
+        keyword in CRITICAL_KEYWORDS
+        for keyword in matched_keywords
+    )
+
+
+def _compute_base_score(
+    ml_score,
+    rule_score,
+    url_score,
+    is_receipt,
+):
+    """
+    Compute weighted score before applying overrides.
+    """
+
+    if is_receipt:
+        return round(
+            (ml_score * RECEIPT_ML_WEIGHT)
+            + (rule_score * RECEIPT_RULE_WEIGHT)
+            + (url_score * RECEIPT_URL_WEIGHT)
+        )
+
+    return round(
+        (ml_score * ML_WEIGHT)
+        + (rule_score * RULE_WEIGHT)
+        + (url_score * URL_WEIGHT)
+    )
+
+
+def _apply_keyword_boost(score, keyword_count):
+    """
+    More scam indicators → slightly higher confidence.
+    """
+
+    if keyword_count >= 6:
+        score += 20
+
+    elif keyword_count >= 4:
+        score += 15
+
+    elif keyword_count >= 2:
+        score += 8
+
+    return score
+
+
+def _apply_overrides(
+    score,
+    ml_score,
+    rule_score,
+    url_score,
+    matched_keywords,
+    is_receipt,
+):
+    """
+    Override score for strong phishing evidence.
+    """
+
+    # --------------------------------------------------
+    # Genuine payment receipt
+    # --------------------------------------------------
+    if is_receipt and rule_score < 20 and url_score == 0:
+        return min(score, 25)
+
+    # --------------------------------------------------
+    # Critical phishing keywords
+    # --------------------------------------------------
+    if _has_critical_keywords(matched_keywords):
+        score = max(score, 75)
+
+    # --------------------------------------------------
+    # Rule engine extremely confident
+    # --------------------------------------------------
+    if rule_score >= 80:
+        score = max(score, 85)
+
+    # --------------------------------------------------
+    # Dangerous URL
+    # --------------------------------------------------
+    if url_score >= 80:
+        score = max(score, 85)
+
+    # --------------------------------------------------
+    # AI extremely confident
+    # --------------------------------------------------
+    if ml_score >= 95:
+        score = max(score, 90)
+
+    # --------------------------------------------------
+    # Multiple engines agree
+    # --------------------------------------------------
+    if (
+        ml_score >= 60
+        and rule_score >= 50
+    ):
+        score += 10
+
+    if (
+        rule_score >= 50
+        and url_score >= 50
+    ):
+        score += 10
+
+    if (
+        ml_score >= 60
+        and url_score >= 50
+    ):
+        score += 10
+
+    return min(score, 100)
+
+
+def calculate_final_score(
+    ml_score,
+    rule_score,
+    url_score,
+    matched_keywords,
+    is_receipt,
+):
+    """
+    Central risk fusion function.
+
+    Returns
+    -------
+    int
+        Final score between 0 and 100.
+    """
+
+    score = _compute_base_score(
+        ml_score,
+        rule_score,
+        url_score,
+        is_receipt,
+    )
+
+    score = _apply_keyword_boost(
+        score,
+        len(matched_keywords),
+    )
+
+    score = _apply_overrides(
+        score,
+        ml_score,
+        rule_score,
+        url_score,
+        matched_keywords,
+        is_receipt,
+    )
+
+    return max(0, min(score, 100))
+
+# ==========================================================
+# MAIN SCAN FUNCTION
+# ==========================================================
+
+def scan(text: str):
+    """
+    Main Scan Pipeline
+
+    Flow:
+        1. AI Model
+        2. Rule Engine
+        3. URL Checker
+        4. Payment Receipt Detection
+        5. Risk Fusion
+        6. Category
+        7. Explanation
+    """
+
+    start = time.time()
+
+    # --------------------------------------------------
+    # AI Prediction
+    # --------------------------------------------------
+
+    try:
+
+        ml_result = ml_predict(text)
+
+        ml_score = round(
+            ml_result["probability"] * 100
+        )
+
+        confidence = ml_result["confidence"]
+
+        inference_ms = ml_result.get(
+            "inference_ms",
+            0
+        )
+
+    except Exception as e:
+
+        print(f"[RoBERTa ERROR] {e}")
+
+        ml_score = 50
+        confidence = 0.50
+        inference_ms = 0
+
+    # --------------------------------------------------
+    # Rule Engine
+    # --------------------------------------------------
+
+    rule_result = score_rules(text)
+
+    rule_score = rule_result["score"]
+
+    matched_keywords = rule_result["matched"]
+
+    # --------------------------------------------------
+    # URL Checker
+    # --------------------------------------------------
+
+    url_result = check_url(text)
+
+    url_score = url_result["url_score"]
+
+    flagged_urls = url_result["urls_found"]
+
+    url_reasons = url_result["reasons"]
+
+    # --------------------------------------------------
+    # Receipt Detection
+    # --------------------------------------------------
+
+    is_receipt = _is_payment_receipt(text)
+
+    # --------------------------------------------------
+    # Final Risk Score
+    # --------------------------------------------------
+
+    final_score = calculate_final_score(
+
+        ml_score=ml_score,
+
+        rule_score=rule_score,
+
+        url_score=url_score,
+
+        matched_keywords=matched_keywords,
+
+        is_receipt=is_receipt,
+
+    )
+
+    # --------------------------------------------------
+    # Category
+    # --------------------------------------------------
+
+    category = get_category(final_score)
+
+    # --------------------------------------------------
+    # Explanation
+    # --------------------------------------------------
+
+    explanation = build_explanation(
+
+        category=category,
+
+        matched_keywords=matched_keywords,
+
+        flagged_urls=flagged_urls,
+
+        url_reasons=url_reasons,
+
+        ml_score=ml_score,
+
+        confidence=confidence,
+
+        is_receipt=is_receipt,
+
+    )
+
+    # --------------------------------------------------
+    # Processing Time
+    # --------------------------------------------------
+
+    processing_time_ms = int(
+        (time.time() - start) * 1000
+    )
+
+    # --------------------------------------------------
+    # API Response
+    # --------------------------------------------------
 
     return {
-        # Core scores
-        "final_score":         final,
-        "category":            category,
-        "confidence":          confidence,
-        "ml_score":            ml_score,
-        "rule_score":          rule_score,
-        "url_score":           url_score,
+
+        # Overall
+        "final_score": final_score,
+        "category": category,
+        "confidence": confidence,
+
+        # Breakdown
+        "ml_score": ml_score,
+        "rule_score": rule_score,
+        "url_score": url_score,
 
         # Details
-        "matched_keywords":    matched_keywords,
-        "flagged_urls":        flagged_urls,
-        "url_reasons":         url_reasons,
-        "explanation":         explanation,
+        "matched_keywords": matched_keywords,
+        "flagged_urls": flagged_urls,
+        "url_reasons": url_reasons,
+        "explanation": explanation,
 
         # Metadata
-        "model_version":       MODEL_VERSION,
-        "is_payment_receipt":  is_receipt,
-        "processing_time_ms":  elapsed_ms,
-        "inference_ms":        rob_ms,
-
+        "model_version": MODEL_VERSION,
+        "is_payment_receipt": is_receipt,
+        "processing_time_ms": processing_time_ms,
+        "inference_ms": inference_ms,
     }

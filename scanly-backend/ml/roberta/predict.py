@@ -47,6 +47,10 @@ def _load_model():
         _model     = RobertaForSequenceClassification.from_pretrained(SAVE_DIR)
         _model.eval()   # set to inference mode (disables dropout)
 
+        print("id2label :", _model.config.id2label)
+        print("label2id :", _model.config.label2id)
+
+         
         # Use GPU if available
         if torch.cuda.is_available():
             _model = _model.cuda()

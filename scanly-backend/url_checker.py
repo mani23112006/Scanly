@@ -1,27 +1,168 @@
 import re
 import urllib.parse
 
-# ── URL shortener domains to flag ──────────────────
+# ─────────────────────────────────────────────────────
+# URL Shorteners
+# ─────────────────────────────────────────────────────
 SHORTENERS = {
     "bit.ly", "tinyurl.com", "t.co", "goo.gl",
     "ow.ly", "is.gd", "buff.ly", "short.link",
-    "cutt.ly", "rb.gy"
+    "cutt.ly", "rb.gy", "rebrand.ly"
 }
 
-# ── Suspicious TLDs (free / scammer-used) ──────────
+# ─────────────────────────────────────────────────────
+# Suspicious TLDs
+# ─────────────────────────────────────────────────────
 SUSPICIOUS_TLDS = {
     ".xyz", ".tk", ".ml", ".ga", ".cf",
-    ".gq", ".pw", ".top", ".click", ".link"
+    ".gq", ".pw", ".top", ".click",
+    ".link", ".buzz", ".work", ".live"
 }
 
-# ── Suspicious path keywords ────────────────────────
-SUSPICIOUS_PATHS = [
-    "verify", "login", "secure", "account",
-    "banking", "update", "confirm", "signin",
-    "password", "credential", "wallet", "otp"
+# ─────────────────────────────────────────────────────
+# Trusted Official Domains
+# ─────────────────────────────────────────────────────
+SAFE_DOMAINS = {
+
+    # Google
+    "google.com",
+    "google.co.in",
+    "gmail.com",
+    "youtube.com",
+
+    # Microsoft
+    "microsoft.com",
+    "outlook.com",
+    "live.com",
+    "office.com",
+
+    # Apple
+    "apple.com",
+    "icloud.com",
+
+    # Amazon
+    "amazon.com",
+    "amazon.in",
+
+    # Meta
+    "facebook.com",
+    "instagram.com",
+    "whatsapp.com",
+
+    # X
+    "x.com",
+    "twitter.com",
+
+    # LinkedIn
+    "linkedin.com",
+
+    # Git
+    "github.com",
+    "gitlab.com",
+
+    # Cloud
+    "aws.amazon.com",
+    "azure.microsoft.com",
+    "cloudflare.com",
+
+    # Payments
+    "paypal.com",
+    "stripe.com",
+    "razorpay.com",
+    "phonepe.com",
+    "paytm.com",
+    "gpay.com",
+
+    # Banks
+    "sbi.co.in",
+    "onlinesbi.sbi",
+    "hdfcbank.com",
+    "icicibank.com",
+    "axisbank.com",
+    "kotak.com",
+    "pnbindia.in",
+    "bankofbaroda.in",
+    "canarabank.com",
+
+    # Govt
+    "uidai.gov.in",
+    "digilocker.gov.in",
+    "gst.gov.in",
+    "incometax.gov.in",
+    "irctc.co.in",
+    "npci.org.in",
+
+    # Others
+    "netflix.com",
+    "adobe.com",
+    "oracle.com",
+    "dropbox.com",
+    "discord.com"
+}
+
+# ─────────────────────────────────────────────────────
+# Suspicious keywords in domain
+# ─────────────────────────────────────────────────────
+DOMAIN_KEYWORDS = [
+    "login",
+    "verify",
+    "verification",
+    "secure",
+    "update",
+    "signin",
+    "account",
+    "bank",
+    "otp",
+    "wallet",
+    "payment",
+    "confirm"
 ]
 
-# ── Regex to extract URLs from any text ────────────
+# ─────────────────────────────────────────────────────
+# Suspicious path keywords
+# ─────────────────────────────────────────────────────
+PATH_KEYWORDS = [
+    "verify",
+    "login",
+    "secure",
+    "update",
+    "signin",
+    "password",
+    "credential",
+    "wallet",
+    "otp",
+    "confirm",
+    "account"
+]
+
+# ─────────────────────────────────────────────────────
+# Brand names scammers impersonate
+# ─────────────────────────────────────────────────────
+BRANDS = [
+    "google",
+    "gmail",
+    "amazon",
+    "paypal",
+    "apple",
+    "microsoft",
+    "github",
+    "facebook",
+    "instagram",
+    "linkedin",
+    "netflix",
+    "sbi",
+    "hdfc",
+    "icici",
+    "axis",
+    "kotak",
+    "phonepe",
+    "paytm",
+    "gpay",
+    "razorpay",
+    "stripe",
+    "upi"
+]
+
 URL_PATTERN = re.compile(
     r'https?://[^\s<>"{}|\\^`\[\]]+'
     r'|www\.[^\s<>"{}|\\^`\[\]]+',
@@ -29,137 +170,179 @@ URL_PATTERN = re.compile(
 )
 
 
-def extract_urls(text: str) -> list:
-    """Find all URLs inside a text string."""
+def extract_urls(text: str):
     return URL_PATTERN.findall(text)
 
 
-def check_single_url(url: str) -> dict:
-    """
-    Analyze one URL and return a score + reasons list.
+def is_safe_domain(domain):
+    return any(
+        domain == d or domain.endswith("." + d)
+        for d in SAFE_DOMAINS
+    )
 
-    Args:
-        url: a single URL string
 
-    Returns:
-        {"score": int, "reasons": list}
-    """
-    score   = 0
+def check_single_url(url: str):
+
+    score = 0
     reasons = []
 
-    # Make sure URL has a scheme for parsing
     if not url.startswith("http"):
         url = "http://" + url
 
     try:
         parsed = urllib.parse.urlparse(url)
-    except Exception:
-        return {"score": 0, "reasons": ["Could not parse URL"]}
+    except:
+        return {
+            "score": 0,
+            "reasons": ["Could not parse URL"]
+        }
 
-    scheme  = parsed.scheme.lower()       # http or https
-    netloc  = parsed.netloc.lower()       # domain or IP
-    path    = parsed.path.lower()         # /verify/account etc
-    full    = url.lower()
+    scheme = parsed.scheme.lower()
+    netloc = parsed.netloc.lower()
+    path = parsed.path.lower()
 
-    # ── Check 1: IP address instead of domain ──────
-    ip_pattern = re.compile(
-        r'^(\d{1,3}\.){3}\d{1,3}(:\d+)?$'
-    )
-    if ip_pattern.match(netloc):
+    domain = netloc.split(":")[0]
+
+    # IP Address
+    if re.match(r'^(\d{1,3}\.){3}\d{1,3}$', domain):
         score += 30
-        reasons.append("Uses IP address instead of domain name")
+        reasons.append("Uses IP address")
 
-    # ── Check 2: HTTP not HTTPS ─────────────────────
+    # HTTP
     if scheme == "http":
         score += 25
-        reasons.append("HTTP not HTTPS (no encryption)")
+        reasons.append("HTTP not HTTPS")
 
-    # ── Check 3: Suspicious TLD ─────────────────────
+    # Suspicious TLD
     for tld in SUSPICIOUS_TLDS:
-        if netloc.endswith(tld) or (tld + "/") in full:
+        if domain.endswith(tld):
             score += 20
-            reasons.append(f"Suspicious domain extension: {tld}")
+            reasons.append(f"Suspicious TLD ({tld})")
             break
 
-    # ── Check 4: URL length > 75 characters ─────────
+    # Long URL
     if len(url) > 75:
         score += 20
-        reasons.append(f"Unusually long URL ({len(url)} characters)")
+        reasons.append("Very long URL")
 
-
-    # ── Check 5: Too many subdomains (3+) ───────────
-    # Remove port if present, then count dots
-    domain_only = netloc.split(":")[0]
-    parts = domain_only.split(".")
-    if len(parts) >= 4:
+    # Too many subdomains
+    if len(domain.split(".")) >= 4:
         score += 15
-        reasons.append(f"Too many subdomains ({len(parts) - 2} levels)")
+        reasons.append("Too many subdomains")
 
-    # ── Check 6: Suspicious path keywords ───────────
-    for keyword in SUSPICIOUS_PATHS:
+
+
+            # Safe domain
+    safe = is_safe_domain(domain)
+
+    # -------------------------------
+    # Brand impersonation
+    # -------------------------------
+    if not safe:
+        for brand in BRANDS:
+            if brand in domain:
+                score += 20
+                reasons.append(f"Brand impersonation ({brand})")
+
+    # -------------------------------
+    # Suspicious domain keywords
+    # -------------------------------
+    if not safe:
+        for keyword in DOMAIN_KEYWORDS:
+            if keyword in domain:
+                score += 10
+                reasons.append(f"Domain keyword ({keyword})")
+
+    # -------------------------------
+    # Suspicious path keywords
+    # -------------------------------
+    for keyword in PATH_KEYWORDS:
         if keyword in path:
-            score += 15
-            reasons.append(f"Suspicious path keyword: /{keyword}")
-            break   # only flag once even if multiple keywords match
+            score += 10
+            reasons.append(f"Path keyword ({keyword})")
 
-    # ── Check 7: URL shortener ──────────────────────
+    # -------------------------------
+    # Multiple hyphens
+    # -------------------------------
+    hyphen_count = domain.count("-")
+    if hyphen_count >= 2:
+        score += 10
+        reasons.append("Multiple hyphens in domain")
+
+    # -------------------------------
+    # URL shortener
+    # -------------------------------
     for shortener in SHORTENERS:
-        if shortener in netloc:
+        if shortener == domain or domain.endswith("." + shortener):
             score += 15
-            reasons.append(f"URL shortener detected: {shortener}")
+            reasons.append(f"URL shortener ({shortener})")
             break
 
-    # Cap at 100
+    # -------------------------------
+    # @ symbol
+    # -------------------------------
+    if "@" in url:
+        score += 20
+        reasons.append("@ symbol in URL")
+
+    # -------------------------------
+    # Encoded URL
+    # -------------------------------
+    if "%" in url:
+        score += 10
+        reasons.append("Encoded characters")
+
+    # -------------------------------
+    # Multiple redirects
+    # -------------------------------
+    if "//" in path:
+        score += 10
+        reasons.append("Multiple redirects")
+
+    # -------------------------------
+    # Excessive dots
+    # -------------------------------
+    if domain.count(".") >= 4:
+        score += 10
+        reasons.append("Too many dots")
+
     score = min(score, 100)
 
-    return {"score": score, "reasons": reasons}
+    return {
+        "score": score,
+        "reasons": list(dict.fromkeys(reasons))
+    }
 
 
-def check_url(text: str) -> dict:
+def check_url(text: str):
     """
-    Main function — extract all URLs from text,
-    score each one, return the highest score + all reasons.
-
-    Args:
-        text: full message text (may or may not contain URLs)
-
-    Returns:
-        {
-            "url_score":    int,
-            "urls_found":   list,
-            "reasons":      list
-        }
+    Extract URLs from text and return highest score.
     """
+
     urls = extract_urls(text)
 
     if not urls:
         return {
-            "url_score":  0,
+            "url_score": 0,
             "urls_found": [],
-            "reasons":    []
+            "reasons": []
         }
 
     highest_score = 0
-    all_reasons   = []
-    all_urls      = []
+    reasons = []
 
     for url in urls:
-        result = check_single_url(url)
-        all_urls.append(url)
 
-        if result["score"] > highest_score:
-            highest_score = result["score"]
+        result = check_single_url(url)
+
+        highest_score = max(highest_score, result["score"])
 
         for reason in result["reasons"]:
-            if reason not in all_reasons:
-                all_reasons.append(reason)
+            if reason not in reasons:
+                reasons.append(reason)
 
     return {
-        "url_score":  highest_score,
-        "urls_found": all_urls,
-        "reasons":    all_reasons
+        "url_score": highest_score,
+        "urls_found": urls,
+        "reasons": reasons
     }
-
-
-
-    

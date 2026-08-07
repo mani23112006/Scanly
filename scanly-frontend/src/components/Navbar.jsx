@@ -77,13 +77,8 @@ const handleLogout = async () => {
     </Link>
   )}
 
-  <span className="flex items-center gap-1.5 bg-green-900/40
-                   border border-green-800 text-green-400
-                   text-xs px-3 py-1 rounded-full">
-    <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse">
-    </span>
-    API Live
-  </span>
+  
+   
 </div>
 
         {/* Mobile hamburger */}
