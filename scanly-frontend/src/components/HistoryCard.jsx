@@ -1,4 +1,8 @@
+import { useState } from 'react'
+
 function HistoryCard({ scan }) {
+
+  const [expanded, setExpanded] = useState(false)
 
   // ── Color config per category ─────────────────
   const config = {
@@ -46,6 +50,10 @@ function HistoryCard({ scan }) {
     ? scan.input_text.slice(0, 120) + '...'
     : scan.input_text
 
+  const gemini = scan.gemini
+  const hasGeminiDetail =
+    gemini && (gemini.why_flagged?.length > 0 || gemini.safety_tips?.length > 0)
+
   return (
     <div className={`bg-gray-900 border ${c.border} rounded-xl p-5
                      hover:border-gray-600 transition-colors`}>
@@ -69,15 +77,26 @@ function HistoryCard({ scan }) {
           {formatDate(scan.timestamp)}
         </span>
       </div>
-      
+
       {/* Message preview */}
       <p className="text-gray-500 text-sm leading-relaxed font-mono
                     bg-gray-950 rounded-lg px-3 py-2 border border-gray-800 mb-3">
         {preview}
       </p>
 
+      {/* ── Gemini summary (always visible if present) ── */}
+      {gemini?.summary && (
+        <div className="bg-gray-950 border border-gray-800 rounded-lg
+                        px-3 py-2 mb-3">
+          <p className="text-xs text-gray-500 flex gap-1.5">
+            <span>🧠</span>
+            <span className="leading-relaxed">{gemini.summary}</span>
+          </p>
+        </div>
+      )}
+
       {/* Bottom row — mini score breakdown + keywords */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
+      <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
 
         {/* Mini scores */}
         <div className="flex gap-3 text-xs text-gray-600">
@@ -104,6 +123,68 @@ function HistoryCard({ scan }) {
           </div>
         )}
       </div>
+
+      {/* ── Expand toggle for full Gemini explanation ── */}
+      {hasGeminiDetail && (
+        <>
+          <button
+            onClick={() => setExpanded((prev) => !prev)}
+            className="text-xs text-blue-400 hover:text-blue-300
+                       transition-colors mt-1"
+          >
+            {expanded ? '▲ Hide AI explanation' : '▼ View AI explanation'}
+          </button>
+
+          {expanded && (
+            <div className="mt-3 pt-3 border-t border-gray-800 space-y-3">
+
+              {gemini.why_flagged?.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-gray-400 mb-1.5">
+                    🚩 Why it was flagged
+                  </p>
+                  <ul className="space-y-1">
+                    {gemini.why_flagged.map((reason, i) => (
+                      <li key={i} className="text-xs text-gray-500 flex gap-1.5">
+                        <span className="text-gray-700">•</span>
+                        <span>{reason}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {gemini.safety_tips?.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-gray-400 mb-1.5">
+                    🛡️ Safety tips
+                  </p>
+                  <ul className="space-y-1">
+                    {gemini.safety_tips.map((tip, i) => (
+                      <li key={i} className="text-xs text-gray-500 flex gap-1.5">
+                        <span className="text-gray-700">•</span>
+                        <span>{tip}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {gemini.recommended_action && (
+                <div>
+                  <p className="text-xs font-medium text-gray-400 mb-1.5">
+                    🧭 Recommended action
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {gemini.recommended_action}
+                  </p>
+                </div>
+              )}
+
+            </div>
+          )}
+        </>
+      )}
 
     </div>
   )

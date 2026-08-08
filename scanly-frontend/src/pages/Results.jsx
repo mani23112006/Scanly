@@ -4,6 +4,7 @@ import RiskBadge       from '../components/RiskBadge'
 import ScoreBar        from '../components/ScoreBar'
 import ConfidenceMeter from '../components/ConfidenceMeter'
 import OCRPreview      from '../components/OCRPreview'
+import GeminiInsights from '../components/GeminiInsights'
 
 function Results() {
   const location = useLocation()
@@ -59,6 +60,7 @@ function Results() {
     ocr_warning,
     status,
     message,
+    gemini,
   } = result
 
   // Score ring color
@@ -153,6 +155,9 @@ function Results() {
           confidence={confidence}
           modelVersion={model_version}
         />
+
+        {/* ── Gemini AI Explanation ── */}
+        <GeminiInsights gemini={gemini} />
 
         {/* ── OCR Preview (image scans only) ── */}
         {extracted_text && (

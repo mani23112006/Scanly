@@ -2,7 +2,18 @@ from pydantic import BaseModel, validator
 from typing import Optional, List
 from datetime import datetime
 
+
+# ── GEMINI EXPLANATION ─────────────────────────────
+
+class GeminiExplanation(BaseModel):
+    summary: str
+    why_flagged: List[str] = []
+    safety_tips: List[str] = []
+    recommended_action: str = ""
+
+
 # ── INPUT ──────────────────────────────────────────
+
 class ScanRequest(BaseModel):
     text: str
     url: Optional[str] = None   # optional extra URL field
@@ -11,32 +22,39 @@ class ScanRequest(BaseModel):
     def text_must_not_be_empty(cls, v):
         if not v.strip():
             raise ValueError("Text cannot be empty")
+
         if len(v) > 5000:
             raise ValueError("Text too long (max 5000 characters)")
+
         return v.strip()
 
 
 # ── SCAN OUTPUT ────────────────────────────────────
+
 class ScanResponse(BaseModel):
     status: str
     input_text: str
     final_score: int
     category: str
 
-    # ── NEW fields (Day 8) ──────────────────────────
-    confidence: Optional[float] = None          # RoBERTa confidence (0.0–1.0)
-    model_version: Optional[str] = None         # e.g. roberta-base-finetuned-v1
-    processing_time_ms: Optional[int] = None    # Total scan processing time
+    # ── NEW fields ─────────────────────────────────
+    confidence: Optional[float] = None
+    model_version: Optional[str] = None
+    processing_time_ms: Optional[int] = None
 
-    # ── Existing fields ─────────────────────────────
+    # ── Existing fields ────────────────────────────
     ml_score: int
     rule_score: int
     url_score: int
     matched_keywords: List[str]
     explanation: str
 
+    # ── Gemini explanation ─────────────────────────
+    gemini: Optional[GeminiExplanation] = None
+
 
 # ── HISTORY ITEM ───────────────────────────────────
+
 class HistoryItem(BaseModel):
     id: Optional[str] = None
     input_text: str
@@ -52,6 +70,7 @@ class HistoryItem(BaseModel):
 
 
 # ── HISTORY RESPONSE ───────────────────────────────
+
 class HistoryResponse(BaseModel):
     status: str
     count: int
@@ -59,12 +78,15 @@ class HistoryResponse(BaseModel):
 
 
 # ── IMAGE SCAN RESPONSE ────────────────────────────
+
 class ImageScanResponse(BaseModel):
     status: str
+
+    # ── File metadata ──────────────────────────────
     filename: Optional[str] = None
     file_size_kb: Optional[float] = None
 
-    # OCR metadata
+    # ── OCR metadata ───────────────────────────────
     extracted_text: str
     ocr_confidence: float
     ocr_quality: str
@@ -72,7 +94,7 @@ class ImageScanResponse(BaseModel):
     ocr_warning: Optional[str] = None
     ocr_ms: int
 
-    # Scoring
+    # ── Scoring ────────────────────────────────────
     final_score: int
     category: str
     confidence: Optional[float] = None
@@ -84,15 +106,19 @@ class ImageScanResponse(BaseModel):
     explanation: str
     model_version: Optional[str] = None
 
-    # Timing
+    # ── Timing ─────────────────────────────────────
     inference_ms: Optional[int] = None
     total_ms: Optional[int] = None
 
-    # No-text response
+    # ── No-text response ───────────────────────────
     message: Optional[str] = None
+
+    # ── Gemini explanation ─────────────────────────
+    gemini: Optional[GeminiExplanation] = None
 
 
 # ── URL SCAN REQUEST ───────────────────────────────
+
 class URLScanRequest(BaseModel):
     url: str
 
@@ -110,6 +136,7 @@ class URLScanRequest(BaseModel):
 
 
 # ── URL CHECKS ─────────────────────────────────────
+
 class URLChecks(BaseModel):
     uses_ip: bool = False
     uses_http: bool = False
@@ -121,6 +148,7 @@ class URLChecks(BaseModel):
 
 
 # ── URL SCAN RESPONSE ──────────────────────────────
+
 class URLScanResponse(BaseModel):
     status: str
     url: str
@@ -129,3 +157,6 @@ class URLScanResponse(BaseModel):
     category: str
     reasons: List[str]
     explanation: str
+
+    # ── Gemini explanation ─────────────────────────
+    gemini: Optional[GeminiExplanation] = None

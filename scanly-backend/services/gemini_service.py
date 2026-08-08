@@ -2,7 +2,7 @@
 services/gemini_service.py
 
 Purpose:
-Communicates with Gemini 2.5 Flash to generate a human-readable
+Communicates with Gemini Flash to generate a human-readable
 explanation for Scanly's detection result.
 
 Responsibilities:
@@ -142,7 +142,21 @@ def generate_explanation(scan_data: dict) -> dict:
         # Build prompt from Scanly's detection result.
         user_prompt = build_user_prompt(scan_data)
 
-        # Call Gemini
+        # Call Gemini.
+        #
+        # NOTE: gemini-3.x models (3.5 Flash, 3.6 Flash, etc.) replaced the
+        # old numeric `thinking_budget` param with the string enum
+        # `thinking_level`. Sending `thinking_budget` to a 3.x model raises
+        # 400 INVALID_ARGUMENT. Sending BOTH in the same request also
+        # raises 400. Use `thinking_level` only, and keep it low since this
+        # is a simple formatting/explanation task with no real reasoning
+        # required — low latency and low cost, and it avoids the model
+        # burning its output-token budget on "thinking" before writing
+        # the actual JSON.
+        #
+        # Google also recommends NOT setting temperature / top_p / top_k
+        # for Gemini 3.x models, since sampling is optimized around the
+        # defaults and these fields may simply be ignored.
         response = _client.models.generate_content(
             model=gemini_settings.GEMINI_MODEL,
 
@@ -150,13 +164,23 @@ def generate_explanation(scan_data: dict) -> dict:
 
             config=types.GenerateContentConfig(
                 system_instruction=SYSTEM_PROMPT,
-                temperature=0.2,
                 max_output_tokens=gemini_settings.GEMINI_MAX_OUTPUT_TOKENS,
                 response_mime_type="application/json",
+                thinking_config=types.ThinkingConfig(
+                    thinking_level=types.ThinkingLevel.LOW,
+                ),
             ),
         )
 
         if not response.text:
+            finish_reason = None
+            if response.candidates:
+                finish_reason = getattr(
+                    response.candidates[0], "finish_reason", None
+                )
+            logger.warning(
+                "Gemini returned no text. finish_reason=%s", finish_reason
+            )
             raise ValueError("Empty response received from Gemini.")
 
         parsed = _extract_json(response.text)

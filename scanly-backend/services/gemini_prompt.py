@@ -10,16 +10,18 @@ Scanly detection pipeline (RoBERTa + Rules + URL Analysis).
 
 Flow:
 Scan Result
-      ↓
+↓
 build_user_prompt()
-      ↓
+↓
 Gemini
-      ↓
+↓
 Human-readable JSON explanation
 """
 
-# System prompt sent once with every request.
-# It defines Gemini's role and the expected output format.
+
+# System prompt sent with every Gemini request.
+# Defines Gemini's role and expected JSON output.
+
 SYSTEM_PROMPT = """
 You are SCANLY AI Assistant.
 
@@ -27,12 +29,13 @@ You DO NOT perform scam detection.
 
 The classification has already been completed by the Scanly detection pipeline.
 
-Your responsibility is ONLY to explain the existing result in clear, human-readable language.
+Your responsibility is ONLY to explain the existing Scanly result in clear,
+human-readable language.
 
 Rules you must NEVER break:
 
 1. Never change the category.
-2. Never estimate or generate another risk score.
+2. Never generate or modify the risk score.
 3. Never contradict the Scanly detection result.
 4. Never classify the input yourself.
 5. Return ONLY valid JSON.
@@ -48,24 +51,28 @@ Return exactly this JSON structure:
 
 Field Rules:
 
-summary
-- Write 2–3 simple sentences.
+summary:
+- Write 2-3 simple sentences explaining the result.
 
-why_flagged
-- Explain every detection reason in simple language.
+why_flagged:
+- Explain every detection reason provided by Scanly.
+- Do not add new detection reasons.
 
-safety_tips
+safety_tips:
 - Provide exactly 4 practical cybersecurity tips.
 
-recommended_action
-- Give one clear next step based on the category:
+recommended_action:
+- Give one clear next step based on the given category:
   Safe / Suspicious / Scam.
 
-Keep the complete response under 250 words.
+Response Rules:
 
-Do not return Markdown.
-Do not return code fences.
-Return JSON only.
+- Keep the complete response under 250 words.
+- The response must start with { and end with }.
+- Do not return Markdown.
+- Do not return code fences.
+- Do not add explanations before or after JSON.
+- Return JSON only.
 """
 
 
@@ -79,6 +86,7 @@ def build_user_prompt(scan_data: dict) -> str:
     - image
 
     Expected scan_data:
+
     {
         scan_type,
         category,
@@ -96,7 +104,8 @@ def build_user_prompt(scan_data: dict) -> str:
         f"Detection Reasons: {scan_data.get('reasons') or ['None provided']}",
     ]
 
-    # Image Scan → Include OCR extracted text
+
+    # Image scan -> Include OCR extracted text
     if (
         scan_data.get("scan_type") == "image"
         and scan_data.get("ocr_text")
@@ -105,7 +114,8 @@ def build_user_prompt(scan_data: dict) -> str:
             f"OCR Extracted Text: {scan_data['ocr_text']}"
         )
 
-    # URL Scan → Include scanned URL
+
+    # URL scan -> Include scanned URL
     elif (
         scan_data.get("scan_type") == "url"
         and scan_data.get("original_input")
@@ -114,7 +124,8 @@ def build_user_prompt(scan_data: dict) -> str:
             f"Scanned URL: {scan_data['original_input']}"
         )
 
-    # Text Scan → Include original message
+
+    # Text scan -> Include original message
     elif (
         scan_data.get("scan_type") == "text"
         and scan_data.get("original_input")
@@ -123,9 +134,10 @@ def build_user_prompt(scan_data: dict) -> str:
             f"Original Message: {scan_data['original_input']}"
         )
 
-    # Final instruction to Gemini
+
+    # Final instruction
     lines.append(
-        "\nExplain this result according to the rules and JSON format defined in the system prompt."
+        "\nExplain this Scanly result using the required JSON format only."
     )
 
     return "\n".join(lines)
